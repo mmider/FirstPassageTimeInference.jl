@@ -6,7 +6,7 @@ include(joinpath(SRC_DIR, "reposit.jl"))
 include(joinpath(SRC_DIR, "brownian_bridges.jl"))
 include(joinpath(SRC_DIR, "Bessel.jl"))
 include(joinpath(SRC_DIR, "integrate.jl"))
-include(joinpath(SRC_DIR, "mcmc.jl"))#
+include(joinpath(SRC_DIR, "mcmc.jl"))
 include(joinpath(SRC_DIR, "random_walk.jl"))
 include(joinpath(SRC_DIR, "priors.jl"))
 include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
@@ -18,7 +18,10 @@ dt = 0.01
 θ = [1.0, 1.0, 0.5]
 P = OrnsteinUhlenbeck(θ...)
 
-θs, paths  = mcmc(obsTimes, obsVals, P, dt, 1000, 0.0, 10)
+tKernel = RandomWalk([0.02, 0.02, 0.02], [false, false, true])
+priors = (ImproperPrior(), ImproperPrior(), ImproperPrior())
+θs, paths  = mcmc(obsTimes, obsVals, P, dt, 1000, 0.0, [1,2,3], tKernel,
+                  priors, 10, 100)
 
 
 using Plots
@@ -32,3 +35,8 @@ for i in 1:N
 end
 
 display(p)
+
+
+plot([θ[1] for θ in θs])
+plot([θ[2] for θ in θs])
+plot([θ[3] for θ in θs])

@@ -87,18 +87,19 @@ end
 fptlogpdf(x, t) = log(abs(x)) - 0.5*log(2.0*π*t^3) - 0.5*x^2/t
 
 
-function obsLogLikhd(obs, T, P::ContinuousTimeProcess)
+function obsLogLikhd(obs, t::Float64, P)
     L = η(obs[2], P)
     l = η(obs[1], P)
-    A(L, P) - A(l, P) + logD(obs[1], P) + fptlogpdf(L-l, T)
+    A(L, P) - A(l, P) + logD(obs[1], P) + fptlogpdf(L-l, t)
 end
 
-function obsLogLikhd(obs, obsTimes, P::Vector{ContinuousTimeProcess})
+function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
+    print("from here...\n")
     N = length(obs)
     ll = 0
     for i in 1:N
-        T = obsTimes[i][2] - obsTimes[i][1]
-        ll += obsLogLikhd(obs[i], T, P[i])
+        t = obsTimes[i][2] - obsTimes[i][1]
+        ll += obsLogLikhd(obs[i], t, P)
     end
     ll
 end
@@ -114,7 +115,7 @@ function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes)
     llr = ( sum(ws.llᵒ) - sum(ws.ll)
            + obsLogLikhd(obs, obsTimes, Pᵒ) - obsLogLikhd(obs, obsTimes, P)
            + logpdf(prior, θᵒ[idx]) - logpdf(prior, θ[idx])
-           + logpdf(tKernel, θᵒ, θ, idx) - logpdf(tKernel, θ, θᵒ) )
+           + logpdf(tKernel, θᵒ, θ) - logpdf(tKernel, θ, θᵒ) )
     if rand(Exponential()) ≥ llr
         swap!(ws)
         return true, θᵒ, Pᵒ
@@ -133,19 +134,20 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
 
     N = length(updtParamIdx)
 
-    numAccpted = 0
+    numAccepted = 0
     for i in 1:numMCMCsteps
         (i % verbIter == 0) && print("Iteration ", i, "\n")
         (i % saveIter == 0) && (paths[div(i,saveIter)] = deepcopy(ws.XX))
         impute!(ws, P, ρ)
         if N > 0
             idx = mod1(i, N)
-            accepted, θ, P = updateParams!(ws, P, θ, tKernel, idx, priors[idx], obsVals)
+            accepted, θ, P = updateParams!(ws, P, θ, tKernel, idx, priors[idx],
+                                           obsVals, obsTimes)
             numAccepted += accepted
         end
         θs[i+1] = θ
     end
     print("Acceptance rates for imputation: ", ws.numAccpt./numMCMCsteps, "\n")
-    print("Acceptance rates for parameter update: ", numAccpted/numMCMCsteps, "\n")
+    print("Acceptance rates for parameter update: ", numAccepted/numMCMCsteps, "\n")
     θs, paths
 end
