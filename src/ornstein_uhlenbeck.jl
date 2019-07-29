@@ -7,6 +7,12 @@ end
 drift(t, y::Float64, P::OrnsteinUhlenbeck) = P.θ*(P.μ-y)
 vola(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ
 
+ϕ(y::Float64, P::OrnsteinUhlenbeck) = ϕ(nothing, y, P)
+ϕ(t, y::Float64, P::OrnsteinUhlenbeck) = 0.5*((P.θ*(P.μ/P.σ-y))^2-P.θ)
+
+A(y::Float64, P::OrnsteinUhlenbeck) = A(nothing, y, P)
+A(t, y::Float64, P::OrnsteinUhlenbeck) = P.θ*P.μ/P.σ*y - 0.5*P.θ*y^2
+
 η(y::Float64, P::OrnsteinUhlenbeck) = η(nothing, y, P)
 η(t, y::Float64, P::OrnsteinUhlenbeck) = y/P.σ
 
@@ -14,3 +20,6 @@ vola(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ
 η⁻¹(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ*y
 
 params(P::OrnsteinUhlenbeck) = [P.θ, P.μ, P.σ]
+
+
+clone(P::OrnsteinUhlenbeck, θ) = OrnsteinUhlenbeck(θ...)
