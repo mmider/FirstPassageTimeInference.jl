@@ -1,5 +1,6 @@
 SRC_DIR = joinpath(Base.source_dir(), "..", "src")
 OUT_DIR=joinpath(Base.source_dir(), "..", "output")
+SCRIPT_DIR = joinpath(Base.source_dir(), "..", "scripts")
 mkpath(OUT_DIR)
 
 include(joinpath(SRC_DIR, "reposit.jl"))
@@ -11,8 +12,7 @@ include(joinpath(SRC_DIR, "random_walk.jl"))
 include(joinpath(SRC_DIR, "priors.jl"))
 include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 
-obsTimes = [[0.0, 1.0], [2.0, 3.0], [3.0, 3.5], [4.0, 4.2]]
-obsVals = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
+obsTimes, obsVals = include(joinpath(SCRIPT_DIR, "simulate_data.jl"))
 
 dt = 0.01
 θ = [1.0, 1.0, 0.5]

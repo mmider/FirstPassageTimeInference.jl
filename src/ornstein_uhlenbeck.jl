@@ -4,8 +4,8 @@ struct OrnsteinUhlenbeck <: ContinuousTimeProcess{Float64}
     σ::Float64
 end
 
-drift(t, y::Float64, P::OrnsteinUhlenbeck) = P.θ*(P.μ-y)
-vola(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ
+b(t, y::Float64, P::OrnsteinUhlenbeck) = P.θ*(P.μ-y)
+σ(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ
 
 ϕ(y::Float64, P::OrnsteinUhlenbeck) = ϕ(nothing, y, P)
 ϕ(t, y::Float64, P::OrnsteinUhlenbeck) = 0.5*((P.θ*(P.μ/P.σ-y))^2-P.θ)

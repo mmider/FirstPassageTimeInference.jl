@@ -94,7 +94,6 @@ function obsLogLikhd(obs, t::Float64, P)
 end
 
 function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
-    print("from here...\n")
     N = length(obs)
     ll = 0
     for i in 1:N
