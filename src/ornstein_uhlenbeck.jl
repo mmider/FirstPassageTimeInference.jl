@@ -23,5 +23,3 @@ params(P::OrnsteinUhlenbeck) = [P.θ, P.μ, P.σ]
 
 
 clone(P::OrnsteinUhlenbeck, θ) = OrnsteinUhlenbeck(θ...)
-
-logD(y::Float64, P::OrnsteinUhlenbeck) = -log(P.σ)

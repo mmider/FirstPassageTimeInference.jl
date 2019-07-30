@@ -77,20 +77,20 @@ function impute!(ws::Workspace, P, ρ)
         crankNicolson!(ws.WWᵒ[i].yy, ws.WW[i].yy, ρ)
         Bessel!(Val{true}(), ws.WWᵒ[i], ws.XXᵒ[i], ws.repo[i])
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], P)
-        if rand(Exponential()) ≥ (ws.llᵒ[i]-ws.ll[i])
+        if rand(Exponential()) ≥ -(ws.llᵒ[i]-ws.ll[i])
             swap!(ws, i)
             ws.numAccpt[i] += 1
         end
     end
 end
 
-fptlogpdf(x, t) = log(abs(x)) - 0.5*log(2.0*π*t^3) - 0.5*x^2/t
+fptlogpdf(x, t) = log(abs(x)) - 0.5*log(2.0*π) - 1.5*log(t) - 0.5*x^2/t
 
 
 function obsLogLikhd(obs, t::Float64, P)
     L = η(obs[2], P)
     l = η(obs[1], P)
-    A(L, P) - A(l, P) + logD(obs[1], P) + fptlogpdf(L-l, t)
+    A(L, P) - A(l, P) + fptlogpdf(L-l, t)
 end
 
 function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
@@ -103,7 +103,8 @@ function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
     ll
 end
 
-function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes)
+function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes,
+                       verbose, it)
     θᵒ = rand(tKernel, θ, idx)
     Pᵒ = clone(P, θᵒ)
     for i in 1:ws.N
@@ -111,11 +112,13 @@ function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes)
         Bessel!(Val{true}(), ws.WW[i], ws.XXᵒ[i], ws.repoᵒ[i])
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], Pᵒ)
     end
-    llr = ( sum(ws.llᵒ) - sum(ws.ll)
-           + obsLogLikhd(obs, obsTimes, Pᵒ) - obsLogLikhd(obs, obsTimes, P)
-           + logpdf(prior, θᵒ[idx]) - logpdf(prior, θ[idx])
+    llᵒ = sum(ws.llᵒ) + obsLogLikhd(obs, obsTimes, Pᵒ)
+    ll = sum(ws.ll) + obsLogLikhd(obs, obsTimes, P)
+    llr = ( llᵒ - ll + logpdf(prior, θᵒ[idx]) - logpdf(prior, θ[idx])
            + logpdf(tKernel, θᵒ, θ) - logpdf(tKernel, θ, θᵒ) )
-    if rand(Exponential()) ≥ llr
+    verbose && print("it: ", it, ", llᵒ: ", round(llᵒ, digits=3), ", ll: ",
+                     round(ll, digits=3), ", llr: ", round(llr, digits=3), "\n")
+    if rand(Exponential()) ≥ -llr
         swap!(ws)
         return true, θᵒ, Pᵒ
     else
@@ -133,20 +136,22 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
 
     N = length(updtParamIdx)
 
-    numAccepted = 0
+    numProp = zeros(Int64, N)
+    numAccepted = zeros(Int64, N)
     for i in 1:numMCMCsteps
-        (i % verbIter == 0) && print("Iteration ", i, "\n")
         (i % saveIter == 0) && (paths[div(i,saveIter)] = deepcopy(ws.XX))
         impute!(ws, P, ρ)
         if N > 0
-            idx = mod1(i, N)
+            idx₁ = mod1(i, N)
+            idx = updtParamIdx[idx₁]
             accepted, θ, P = updateParams!(ws, P, θ, tKernel, idx, priors[idx],
-                                           obsVals, obsTimes)
-            numAccepted += accepted
+                                           obsVals, obsTimes, i % verbIter == 0, i)
+            numAccepted[idx₁] += accepted
+            numProp[idx₁] += 1
         end
-        θs[i+1] = θ
+        θs[i+1] = copy(θ)
     end
     print("Acceptance rates for imputation: ", ws.numAccpt./numMCMCsteps, "\n")
-    print("Acceptance rates for parameter update: ", numAccepted/numMCMCsteps, "\n")
+    print("Acceptance rates for parameter update: ", numAccepted./numProp, "\n")
     θs, paths
 end
