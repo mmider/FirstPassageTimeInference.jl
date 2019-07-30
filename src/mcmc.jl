@@ -1,5 +1,9 @@
-
 using Distributions
+
+abstract type UpdateType end
+
+struct MetropolisHastings <: UpdateType end
+struct ConjugateUpdate <: UpdateType end
 
 struct Workspace{TW,TX}
     Wnr::Wiener{ℝ{3,Float64}}
@@ -24,7 +28,6 @@ struct Workspace{TW,TX}
         WWᵒ = Vector{TW}(undef, m)
         XXᵒ = Vector{TX}(undef, m)
         repoᵒ = Vector{Reposit}(undef, m)
-        ll = zeros(Float64, m)
         llᵒ = zeros(Float64, m)
 
         for i in 1:m
@@ -34,11 +37,12 @@ struct Workspace{TW,TX}
             XXᵒ[i] = Bridge.samplepath(tt, zero(Float64))
             repoᵒ[i] = Reposit(obsTimes[i]..., η.(obsVals[i], [P,P])...)
             Bessel!(Val{true}(), WWᵒ[i], XXᵒ[i], repoᵒ[i])
-            llᵒ[i] = ll[i] = pathLogLikhd(XXᵒ[i], P)
+            llᵒ[i] = pathLogLikhd(XXᵒ[i], P)
         end
         WW = deepcopy(WWᵒ)
         XX = deepcopy(XXᵒ)
         repo = deepcopy(repoᵒ)
+        ll = deepcopy(llᵒ)
         numAccpt = zeros(Float64, m)
 
         new{TW,TX}(Wnr, WW, WWᵒ, XX, XXᵒ, repo, repoᵒ, ll, llᵒ, numAccpt, m)
@@ -55,12 +59,9 @@ function pathLogLikhd(XX, P)
     integrate(x -> -ϕ(x,P), XX)
 end
 
-
 crankNicolson!(yᵒ, y, ρ) = (yᵒ .= √(1-ρ)*yᵒ + √(ρ)*y)
 
-
 function swap!(ws::Workspace, i)
-    ws.WW[i], ws.WWᵒ[i] = ws.WWᵒ[i], ws.WW[i]
     ws.XX[i], ws.XXᵒ[i] = ws.XXᵒ[i], ws.XX[i]
     ws.ll[i], ws.llᵒ[i] = ws.llᵒ[i], ws.ll[i]
 end
@@ -68,6 +69,20 @@ end
 function swap!(ws::Workspace)
     for i in 1:ws.N
         swap!(ws, i)
+    end
+end
+
+function swapNoise!(ws::Workspace, i)
+    ws.WW[i], ws.WWᵒ[i] = ws.WWᵒ[i], ws.WW[i]
+end
+
+function swapRepo!(ws::Workspace, i)
+    ws.repoᵒ[i], ws.repo[i] = ws.repo[i], ws.repoᵒ[i]
+end
+
+function swapRepo!(ws::Workspace)
+    for i in 1:ws.N
+        swapRepo!(ws, i)
     end
 end
 
@@ -79,6 +94,7 @@ function impute!(ws::Workspace, P, ρ)
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], P)
         if rand(Exponential()) ≥ -(ws.llᵒ[i]-ws.ll[i])
             swap!(ws, i)
+            swapNoise!(ws, i)
             ws.numAccpt[i] += 1
         end
     end
@@ -95,7 +111,7 @@ end
 
 function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
     N = length(obs)
-    ll = 0
+    ll = 0.0
     for i in 1:N
         t = obsTimes[i][2] - obsTimes[i][1]
         ll += obsLogLikhd(obs[i], t, P)
@@ -103,8 +119,8 @@ function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
     ll
 end
 
-function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes,
-                       verbose, it)
+function updateParams!(::MetropolisHastings, ws::Workspace, P, θ, tKernel, idx,
+                       prior, obs, obsTimes, verbose, it)
     θᵒ = rand(tKernel, θ, idx)
     Pᵒ = clone(P, θᵒ)
     for i in 1:ws.N
@@ -120,14 +136,26 @@ function updateParams!(ws::Workspace, P, θ, tKernel, idx, prior, obs, obsTimes,
                      round(ll, digits=3), ", llr: ", round(llr, digits=3), "\n")
     if rand(Exponential()) ≥ -llr
         swap!(ws)
+        swapRepo!(ws)
         return true, θᵒ, Pᵒ
     else
         return false, θ, P
     end
 end
 
+function updateParams!(::ConjugateUpdate, ws::Workspace, P, θ, tKernel, idx,
+                       prior, obs, obsTimes, verbose, it)
+    θᵒ = conjugateDraw(θ, ws.XX, P, prior)
+    Pᵒ = clone(P, θᵒ)
+    for i in 1:ws.N
+        ws.ll[i] = pathLogLikhd(ws.XX[i], Pᵒ)
+    end
+    verbose && print("it: ", it, ", ll: ", round(ll, digits=3), "\n")
+    true, θᵒ, Pᵒ
+end
+
 function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
-              priors, saveIter, verbIter)
+              priors, updateType, saveIter, verbIter)
     ws = Workspace(dt, obsTimes, obsVals, P)
 
     θs = Vector{typeof(params(P))}(undef, numMCMCsteps+1)
@@ -144,8 +172,9 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
         if N > 0
             idx₁ = mod1(i, N)
             idx = updtParamIdx[idx₁]
-            accepted, θ, P = updateParams!(ws, P, θ, tKernel, idx, priors[idx],
-                                           obsVals, obsTimes, i % verbIter == 0, i)
+            accepted, θ, P = updateParams!(updateType[idx₁], ws, P, θ, tKernel,
+                                           idx, priors[idx₁], obsVals, obsTimes,
+                                           i % verbIter == 0, i)
             numAccepted[idx₁] += accepted
             numProp[idx₁] += 1
         end

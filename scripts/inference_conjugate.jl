@@ -11,25 +11,20 @@ include(joinpath(SRC_DIR, "mcmc.jl"))
 include(joinpath(SRC_DIR, "random_walk.jl"))
 include(joinpath(SRC_DIR, "priors.jl"))
 include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
+include(joinpath(SRC_DIR, "ornstein_uhlenbeck_alt.jl"))
+
 
 
 obsTimes, obsVals = include(joinpath(SCRIPT_DIR, "simulate_data.jl"))
 
 dt = 0.01
-θ = [1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
-P = OrnsteinUhlenbeck(θ...)
+θ = [2.0, 2.0, 2.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
+P = OrnsteinUhlenbeckAlt(θ...)
 
-tKernel = RandomWalk([0.4, 0.3, 0.2], [false, false, true])
-priors = (
-          ImproperPrior(),
-          ImproperPrior(),
-          ImproperPosPrior(),
-          )
-updateType = (
-              MetropolisHastings(),
-              MetropolisHastings(),
-              MetropolisHastings())
-θs, paths  = mcmc(obsTimes, obsVals, P, dt, 30000, 0.7, [1, 2, 3], tKernel,
+tKernel = RandomWalk([0.4, 0.2, 0.5], [false, false, true])
+priors = (MvNormal([0.0,0.0], diagm(0=>[1000.0, 1000.0])), ImproperPrior())
+updateType = (ConjugateUpdate(), MetropolisHastings())
+θs, paths  = mcmc(obsTimes, obsVals, P, dt, 30000, 0.0, [1, 3], tKernel,
                   priors, updateType, 10, 100)
 
 using Plots
@@ -45,7 +40,6 @@ end
 
 display(p)
 
-
 plot([θ[1] for θ in θs])
-plot([θ[2] for θ in θs])
+plot([θ[2] for θ in θs[40:end]])
 plot([θ[3] for θ in θs])

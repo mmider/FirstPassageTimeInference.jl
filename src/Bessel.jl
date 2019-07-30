@@ -3,8 +3,6 @@ using StaticArrays
 const ℝ = SVector{N,T} where {N,T}
 
 
-
-
 function Bessel!(::Val{false}, WW::SamplePath, XX::SamplePath, repo::Reposit)
     N = length(WW)
     for i in 1:N
