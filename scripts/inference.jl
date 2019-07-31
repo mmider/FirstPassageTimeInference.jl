@@ -16,21 +16,22 @@ include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 obsTimes, obsVals = include(joinpath(SCRIPT_DIR, "simulate_data.jl"))
 
 dt = 0.01
-θ = [1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
+θ = [0.5, 0.5, 0.5]#[1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
 P = OrnsteinUhlenbeck(θ...)
 
-tKernel = RandomWalk([0.4, 0.3, 0.2], [false, false, true])
+tKernel = RandomWalk([0.5, 3.0, 0.5], [true, false, true])
 priors = (
-          ImproperPrior(),
+          ImproperPosPrior(),
           ImproperPrior(),
           ImproperPosPrior(),
           )
 updateType = (
               MetropolisHastings(),
               MetropolisHastings(),
-              MetropolisHastings())
-θs, paths  = mcmc(obsTimes, obsVals, P, dt, 30000, 0.7, [1, 2, 3], tKernel,
-                  priors, updateType, 10, 100)
+              MetropolisHastings()
+              )
+θs, paths  = mcmc(obsTimes, obsVals, P, dt, 30000, 0.0, [1, 2, 3], tKernel,
+                  priors, updateType, 1000, 100)
 
 using Plots
 

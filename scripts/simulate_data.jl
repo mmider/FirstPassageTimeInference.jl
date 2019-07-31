@@ -10,8 +10,8 @@ include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 Wnr = Wiener()
 θ = [1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#
 
-l₀ = -0.5#-0.5#
-L = 0.5#2.5#
+l₀ = 0.5#-0.5#-0.5#
+L = 1.5#0.5#2.5#
 P = OrnsteinUhlenbeck(θ...)
 
 function sampleFPT(x0, xT, dt, P)
@@ -25,7 +25,7 @@ function sampleFPT(x0, xT, dt, P)
     t
 end
 
-N, dt = 20, 0.0001
+N, dt = 50, 0.0001
 Random.seed!(4)
 samples = vcat(0.0, cumsum([sampleFPT(l₀, L, dt, P) for i in 1:N]))
 
@@ -46,5 +46,5 @@ obsVals3 = [(l3, L3) for _ in obsTimes3]
 
 
 #obsTimes, obsVals = vcat(obsTimes, obsTimes2), vcat(obsVals, obsVals2)
-obsTimes, obsVals = vcat(obsTimes, obsTimes2), vcat(obsVals, obsVals2)
+#obsTimes, obsVals = vcat(obsTimes, obsTimes2), vcat(obsVals, obsVals2)
 obsTimes, obsVals
