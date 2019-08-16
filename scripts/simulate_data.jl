@@ -8,10 +8,10 @@ using Random
 include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 
 Wnr = Wiener()
-θ = [1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#
+θ = [0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#
 
-l₀ = 0.5#-0.5#-0.5#
-L = 1.5#0.5#2.5#
+l₀ = 0.0#0.5#-0.5#-0.5#
+L = 10.0#1.5#0.5#2.5#
 P = OrnsteinUhlenbeck(θ...)
 
 function sampleFPT(x0, xT, dt, P)
@@ -25,7 +25,7 @@ function sampleFPT(x0, xT, dt, P)
     t
 end
 
-N, dt = 50, 0.0001
+N, dt = 30, 0.00001
 Random.seed!(4)
 samples = vcat(0.0, cumsum([sampleFPT(l₀, L, dt, P) for i in 1:N]))
 

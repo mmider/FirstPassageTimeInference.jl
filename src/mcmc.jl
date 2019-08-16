@@ -35,7 +35,7 @@ struct Workspace{TW,TX}
             WWᵒ[i] = Bridge.samplepath(tt, zero(ℝ{3,Float64}))
             sampleBB!(WWᵒ[i], Wnr)
             XXᵒ[i] = Bridge.samplepath(tt, zero(Float64))
-            repoᵒ[i] = Reposit(obsTimes[i]..., η.(obsVals[i], [P,P])...)
+            repoᵒ[i] = Reposit(obsTimes[i]..., η.(obsTimes[i], obsVals[i], [P,P])...)
             Bessel!(Val{true}(), WWᵒ[i], XXᵒ[i], repoᵒ[i])
             llᵒ[i] = pathLogLikhd(XXᵒ[i], P)
         end
@@ -56,7 +56,12 @@ function timeGrid((t0,T), dt)
 end
 
 function pathLogLikhd(XX, P)
-    integrate(x -> -ϕ(x,P), XX)
+    N = length(XX)
+    ll = 0.0
+    for i in 1:N-1
+        ll -= ϕ(XX.tt[i], XX.yy[i], P)*(XX.tt[i+1]-XX.tt[i])
+    end
+    ll
 end
 
 crankNicolson!(yᵒ, y, ρ) = (yᵒ .= √(1-ρ)*yᵒ + √(ρ)*y)
@@ -103,18 +108,17 @@ end
 fptlogpdf(x, t) = log(abs(x)) - 0.5*log(2.0*π) - 1.5*log(t) - 0.5*x^2/t
 
 
-function obsLogLikhd(obs, t::Float64, P)
-    L = η(obs[2], P)
-    l = η(obs[1], P)
-    A(L, P) - A(l, P) + fptlogpdf(L-l, t)
+function obsLogLikhd(obs, t0::Float64, T::Float64, P)
+    L = η(T, obs[2],  P)
+    l = η(t0, obs[1], P)
+    A(T, L, P) - A(t0, l, P) + fptlogpdf(L-l, T-t0)
 end
 
 function obsLogLikhd(obs, obsTimes::Vector{T}, P) where T
     N = length(obs)
     ll = 0.0
     for i in 1:N
-        t = obsTimes[i][2] - obsTimes[i][1]
-        ll += obsLogLikhd(obs[i], t, P)
+        ll += obsLogLikhd(obs[i], obsTimes[i][1], obsTimes[i][2], P)
     end
     ll
 end
@@ -124,7 +128,7 @@ function updateParams!(::MetropolisHastings, ws::Workspace, P, θ, tKernel, idx,
     θᵒ = rand(tKernel, θ, idx)
     Pᵒ = clone(P, θᵒ)
     for i in 1:ws.N
-        ws.repoᵒ[i] = Reposit(ws.repo[i], η.(obs[i], [Pᵒ,Pᵒ])...)
+        ws.repoᵒ[i] = Reposit(ws.repo[i], η.(obsTimes[i], obs[i], [Pᵒ,Pᵒ])...)
         Bessel!(Val{true}(), ws.WW[i], ws.XXᵒ[i], ws.repoᵒ[i])
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], Pᵒ)
     end
@@ -154,6 +158,18 @@ function updateParams!(::ConjugateUpdate, ws::Workspace, P, θ, tKernel, idx,
     true, θᵒ, Pᵒ
 end
 
+function savePath!(::Val{true}, paths, XX, P, idx)
+    xx = deepcopy(XX)
+    for i in 1:length(xx)
+        for j in 1:length(xx[i])
+            xx[i].yy[j] = η⁻¹(xx[i].tt[j], xx[i].yy[j], P)
+        end
+    end
+    paths[idx] = xx
+end
+
+savePath!(::Val{false}, ::Any, ::Any, ::Any, ::Any) = nothing
+
 function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
               priors, updateType, saveIter, verbIter)
     ws = Workspace(dt, obsTimes, obsVals, P)
@@ -162,18 +178,18 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
     θ = θs[1] = params(P)
     paths = Vector{Any}(undef, div(numMCMCsteps, saveIter))
 
-    N = length(updtParamIdx)
+    num_param_updt = length(updtParamIdx)
 
-    numProp = zeros(Int64, N)
-    numAccepted = zeros(Int64, N)
+    numProp = zeros(Int64, num_param_updt)
+    numAccepted = zeros(Int64, num_param_updt)
     for i in 1:numMCMCsteps
-        (i % saveIter == 0) && (paths[div(i,saveIter)] = deepcopy(ws.XX))
+        savePath!(Val{i % saveIter == 0}(), paths, ws.XX, P, div(i,saveIter))
         impute!(ws, P, ρ)
-        if N > 0
-            idx₁ = mod1(i, N)
+        if num_param_updt > 0
+            idx₁ = mod1(i, num_param_updt)
             idx = updtParamIdx[idx₁]
-            accepted, θ, P = updateParams!(updateType[idx₁], ws, P, θ, tKernel,
-                                           idx, priors[idx₁], obsVals, obsTimes,
+            accepted, θ, P = updateParams!(updateType[idx], ws, P, θ, tKernel,
+                                           idx, priors[idx], obsVals, obsTimes,
                                            i % verbIter == 0, i)
             numAccepted[idx₁] += accepted
             numProp[idx₁] += 1

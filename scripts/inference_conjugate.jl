@@ -5,13 +5,12 @@ mkpath(OUT_DIR)
 
 include(joinpath(SRC_DIR, "reposit.jl"))
 include(joinpath(SRC_DIR, "brownian_bridges.jl"))
-include(joinpath(SRC_DIR, "Bessel.jl"))
-include(joinpath(SRC_DIR, "integrate.jl"))
+include(joinpath(SRC_DIR, "bessel.jl"))
 include(joinpath(SRC_DIR, "mcmc.jl"))
 include(joinpath(SRC_DIR, "random_walk.jl"))
 include(joinpath(SRC_DIR, "priors.jl"))
 include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
-include(joinpath(SRC_DIR, "ornstein_uhlenbeck_alt.jl"))
+include(joinpath(SRC_DIR, "ornstein_uhlenbeck_conjug.jl"))
 
 
 
