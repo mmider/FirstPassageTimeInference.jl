@@ -20,9 +20,10 @@ dt = 0.01
 θ = [0.1, 1.5, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
 P = OrnsteinUhlenbeckAlt(θ...)
 
+using LinearAlgebra
 tKernel = RandomWalk([0.4, 0.2, 0.3], [false, false, true])
-priors = (MvNormal([0.0,0.0], diagm(0=>[1000.0, 1000.0])), ImproperPrior())
-updateType = (ConjugateUpdate(), MetropolisHastings())
+priors = (MvNormal([0.0,0.0], diagm(0=>[1000.0, 1000.0])), ImproperPrior(), ImproperPrior())
+updateType = (ConjugateUpdate(), MetropolisHastings(), MetropolisHastings())
 θs, paths  = mcmc(obsTimes, obsVals, P, dt, 10000, 0.0, [1, 3], tKernel,
                   priors, updateType, 10, 100)
 

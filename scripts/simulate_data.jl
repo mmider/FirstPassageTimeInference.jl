@@ -45,6 +45,6 @@ obsTimes3 = collect(zip(samples3[1:end-1], samples3[2:end]))
 obsVals3 = [(l3, L3) for _ in obsTimes3]
 
 
-#obsTimes, obsVals = vcat(obsTimes, obsTimes2), vcat(obsVals, obsVals2)
+obsTimes, obsVals = vcat(obsTimes, obsTimes2, obsTimes3), vcat(obsVals, obsVals2, obsVals3)
 #obsTimes, obsVals = vcat(obsTimes, obsTimes2), vcat(obsVals, obsVals2)
 obsTimes, obsVals

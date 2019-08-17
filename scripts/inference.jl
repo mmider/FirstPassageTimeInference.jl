@@ -15,13 +15,16 @@ include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 obsTimes, obsVals = include(joinpath(SCRIPT_DIR, "simulate_data.jl"))
 
 dt = 0.01
-θ = [0.1, 10.0, 3.0]#[0.3, 15.0, 3.0]#[0.5, 0.5, 0.5]#[1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
+θ = [0.1, 15.0, 1.0]#[0.3, 15.0, 3.0]#[0.5, 0.5, 0.5]#[1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[0.1, 5.0, 0.5]
 P = OrnsteinUhlenbeck(θ...)
 
 tKernel = RandomWalk([0.35, 3.0, 0.6], [true, false, true])
 priors = (
-          ImproperPosPrior(),
-          ImproperPrior(),
+          #ImproperPosPrior(),
+          #ImproperPrior(),
+          Normal(0.0, 30.0),
+          Normal(0.0, 30.0),
+          #MvNormal([0.0], diagm(0=>[1000.0])),
           ImproperPosPrior(),
           )
 updateType = (
@@ -29,9 +32,9 @@ updateType = (
               MetropolisHastings(),
               MetropolisHastings()
               )
-numMCMCsteps = 10000
+numMCMCsteps = 30000
 ρ = 0.0
-updtParamIdx = [2,3]
+updtParamIdx = [1,2,3]
 saveIter = 100
 verbIter = 100
 start = time()
@@ -57,8 +60,10 @@ plot([θ[1] for θ in θs])
 plot([θ[2] for θ in θs])
 plot([θ[3] for θ in θs])
 
+"""
 using DataFrames
 using CSV
+
 cd("../firstPassageTimeInference.jl/output")
 df = DataFrame([[θ[i] for θ in θs] for i in 1:3])
 CSV.write("inference_OU_theta_n2_n3.csv", df)
@@ -70,3 +75,4 @@ end
 
 df = DataFrame(obs=[v[2]-v[1] for v in obsTimes])
 CSV.write("inference_OU_obs_n2_n3.csv", df)
+"""
