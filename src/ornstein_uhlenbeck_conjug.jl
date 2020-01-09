@@ -6,6 +6,8 @@ struct OrnsteinUhlenbeckAlt <: ContinuousTimeProcess{Float64}
     σ::Float64
 end
 
+state_space(::OrnsteinUhlenbeckAlt) = Unrestricted()
+
 b(t, y::Float64, P::OrnsteinUhlenbeckAlt) = P.ρ-P.θ*y
 σ(t, y::Float64, P::OrnsteinUhlenbeckAlt) = P.σ
 
