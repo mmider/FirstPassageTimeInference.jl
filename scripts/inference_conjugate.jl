@@ -27,19 +27,19 @@ updateType = (ConjugateUpdate(), MetropolisHastings(), MetropolisHastings())
 θs, paths  = mcmc(obsTimes, obsVals, P, dt, 10000, 0.0, [1, 3], tKernel,
                   priors, updateType, 10, 100)
 
-using Plots
+using PyPlot
 
-p = plot([],[], label="")
+fig, ax = plt.subplots(4,1, figsize=(20,10))
+plt.tight_layout()
 N, M = length(paths), length(paths[1])
 for i in max(1,N-100):N
     for j in 1:min(M,6)
-        plot!(paths[i][j].tt, [η⁻¹(x, P) for x in paths[i][j].yy], label="",
-              alpha=0.2, color="steelblue")
+        ax[1].plot(paths[i][j].tt, [η⁻¹(x, P) for x in paths[i][j].yy], label="",
+              alpha=0.2, color="steelblue", linewidth=0.4)
     end
 end
 
-display(p)
-
-plot([θ[1] for θ in θs])
-plot([θ[2] for θ in θs[40:end]])
-plot([θ[3] for θ in θs])
+for i in 1:3
+    ax[i+1].plot([θ[i] for θ in θs])
+    ax[i+1].plot([0.0, length(θs)], [θ[i], θ[i]], linestyle="dashed", linewidth=3.0, color="orange")
+end

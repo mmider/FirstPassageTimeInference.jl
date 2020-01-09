@@ -5,6 +5,10 @@ abstract type UpdateType end
 struct MetropolisHastings <: UpdateType end
 struct ConjugateUpdate <: UpdateType end
 
+abstract type StateSpaceType end
+struct MustBePositive <: StateSpaceType end
+struct Unrestricted <: StateSpaceType end
+
 struct Workspace{TW,TX}
     Wnr::Wiener{ℝ{3,Float64}}
     WW::Vector{TW}
@@ -32,12 +36,15 @@ struct Workspace{TW,TX}
 
         for i in 1:m
             tt = timeGrid(obsTimes[i], dt)
-            WWᵒ[i] = Bridge.samplepath(tt, zero(ℝ{3,Float64}))
-            sampleBB!(WWᵒ[i], Wnr)
-            XXᵒ[i] = Bridge.samplepath(tt, zero(Float64))
-            repoᵒ[i] = Reposit(obsTimes[i]..., η.(obsTimes[i], obsVals[i], [P,P])...)
-            Bessel!(Val{true}(), WWᵒ[i], XXᵒ[i], repoᵒ[i])
-            llᵒ[i] = pathLogLikhd(XXᵒ[i], P)
+            llᵒ[i] = -Inf
+            while llᵒ[i] == -Inf
+                WWᵒ[i] = Bridge.samplepath(tt, zero(ℝ{3,Float64}))
+                sampleBB!(WWᵒ[i], Wnr)
+                XXᵒ[i] = Bridge.samplepath(tt, zero(Float64))
+                repoᵒ[i] = Reposit(obsTimes[i]..., η.(obsTimes[i], obsVals[i], [P,P])...)
+                Bessel!(Val{true}(), WWᵒ[i], XXᵒ[i], repoᵒ[i])
+                llᵒ[i] = pathLogLikhd(XXᵒ[i], P)
+            end
         end
         WW = deepcopy(WWᵒ)
         XX = deepcopy(XXᵒ)
@@ -56,6 +63,7 @@ function timeGrid((t0,T), dt)
 end
 
 function pathLogLikhd(XX, P)
+    outside_state_space(XX, state_space(P)) && return -Inf
     N = length(XX)
     ll = 0.0
     for i in 1:N-1
@@ -63,6 +71,9 @@ function pathLogLikhd(XX, P)
     end
     ll
 end
+
+outside_state_space(XX, ::T) where T <: Unrestricted = false
+outside_state_space(XX, ::T) where T <: MustBePositive = any(XX .<= 0.0)
 
 crankNicolson!(yᵒ, y, ρ) = (yᵒ .= √(1-ρ)*yᵒ + √(ρ)*y)
 
