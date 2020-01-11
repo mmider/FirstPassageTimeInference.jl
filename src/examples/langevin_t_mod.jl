@@ -10,6 +10,8 @@ struct LangevinTMod{T,S} <: ContinuousTimeProcess{Float64}
     end
 end
 
+state_space(::LangevinTMod) = Unrestricted()
+
 function b(t, y::Float64, P::LangevinTMod)
     x = y-P.μ+P.f(t)
     -0.5*(P.v+1.0)*x/(P.v+x^2)
@@ -38,6 +40,7 @@ end
 
 η(t, y::Float64, P::LangevinTMod) = y/P.σ
 
+η⁻¹(y::Float64, P::LangevinTMod) = η⁻¹(nothing, y, P)
 η⁻¹(t, y::Float64, P::LangevinTMod) = P.σ*y
 
 params(P::LangevinTMod) = [P.v, P.μ, P.σ]

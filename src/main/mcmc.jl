@@ -8,6 +8,9 @@ struct ConjugateUpdate <: UpdateType end
 abstract type StateSpaceType end
 struct MustBePositive <: StateSpaceType end
 struct Unrestricted <: StateSpaceType end
+struct MustBeAbove <: StateSpaceType
+    low_bd::Int64
+end
 
 struct Workspace{TW,TX}
     Wnr::Wiener{ℝ{3,Float64}}
@@ -74,6 +77,7 @@ end
 
 outside_state_space(XX, ::T) where T <: Unrestricted = false
 outside_state_space(XX, ::T) where T <: MustBePositive = any(XX .<= 0.0)
+outside_state_space(XX, cond::T) where T <: MustBeAbove = any(XX .< cond.low_bd)
 
 crankNicolson!(yᵒ, y, ρ) = (yᵒ .= √(1-ρ)*yᵒ + √(ρ)*y)
 

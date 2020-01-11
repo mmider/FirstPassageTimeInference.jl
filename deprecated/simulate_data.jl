@@ -1,11 +1,5 @@
-SRC_DIR = joinpath(Base.source_dir(), "..", "src")
-OUT_DIR=joinpath(Base.source_dir(), "..", "output")
-mkpath(OUT_DIR)
-
 using Bridge
 using Random
-
-include(joinpath(SRC_DIR, "ornstein_uhlenbeck.jl"))
 
 Wnr = Wiener()
 θ = [0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#[0.1, 15.0, 1.0]#[1.0, 1.0, 1.0]#

@@ -18,7 +18,7 @@ A(t, y::Float64, P::OrnsteinUhlenbeck) = P.θ*P.μ/P.σ*y - 0.5*P.θ*y^2
 #η(y::Float64, P::OrnsteinUhlenbeck) = η(nothing, y, P)
 η(t, y::Float64, P::OrnsteinUhlenbeck) = y/P.σ
 
-#η⁻¹(y::Float64, P::OrnsteinUhlenbeck) = η⁻¹(nothing, y, P)
+η⁻¹(y::Float64, P::OrnsteinUhlenbeck) = η⁻¹(nothing, y, P)
 η⁻¹(t, y::Float64, P::OrnsteinUhlenbeck) = P.σ*y
 
 params(P::OrnsteinUhlenbeck) = [P.θ, P.μ, P.σ]
