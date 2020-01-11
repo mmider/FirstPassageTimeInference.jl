@@ -30,6 +30,8 @@ for f in files _load_in(f) end
 _load_in("plot_summary.jl", change_dir="auxiliary")
 _load_in("simulate_data.jl")
 
+_load_in("cir_random_walk.jl",
+         change_dir = joinpath("examples", "custom_kernels"))
 
 OUT_DIR = joinpath(Base.source_dir(), "output")
 mkpath(OUT_DIR)

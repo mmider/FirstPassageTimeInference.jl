@@ -13,5 +13,31 @@ Xτs = [(parameters.l, parameters.L) for _ in τs]
 #------------------------------------------------------------------------------#
 #                                INFERENCE                                     #
 #------------------------------------------------------------------------------#
-dt = 0.01
-t_kernel
+
+parameters = (
+    P = CoxIngersollRoss(θ...),
+    dt =  0.01,
+    num_mcmc_steps = 10000,
+    ρ = 0.0,
+    updt_param_idx = [1],
+    t_kernel = CIRRandomWalk([0.1, 0.0, 0.0, 0.0]),
+    priors = (ϵ
+        ImproperPosPrior(),
+        ImproperPrior(),
+        ImproperPrior(),
+        ImproperPosPrior(),
+    ),
+    update_type = (
+        MetropolisHastings(),
+    ),
+    save_iter = 100,
+    verb_iter = 100,
+)
+
+θs, paths = mcmc(τs, Xτs, parameters...)
+
+#------------------------------------------------------------------------------#
+#                                  SUMMARY                                     #
+#------------------------------------------------------------------------------#
+
+ax = standard_summary_plot(P, paths, θs, θ)

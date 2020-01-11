@@ -76,8 +76,8 @@ function pathLogLikhd(XX, P)
 end
 
 outside_state_space(XX, ::T) where T <: Unrestricted = false
-outside_state_space(XX, ::T) where T <: MustBePositive = any(XX .<= 0.0)
-outside_state_space(XX, cond::T) where T <: MustBeAbove = any(XX .< cond.low_bd)
+outside_state_space(XX, ::T) where T <: MustBePositive = any(XX.yy .<= 0.0)
+outside_state_space(XX, cond::T) where T <: MustBeAbove = any(XX.yy .< cond.low_bd)
 
 crankNicolson!(yᵒ, y, ρ) = (yᵒ .= √(1-ρ)*yᵒ + √(ρ)*y)
 

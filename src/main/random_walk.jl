@@ -36,9 +36,7 @@ Return a newly sampled state of a random walker, with all element updated.
 """
 function rand(rw::RandomWalk, θ)
     θc = copy(θ)
-    θc .+= additiveStep.(rand.(map(Uniform,-rw.ϵ, rw.ϵ)), rw.pos)
-    θc .*= multipStep.(rand.(map(Uniform,-rw.ϵ, rw.ϵ)), rw.pos)
-    θc
+    rand!(rw, θc)
 end
 
 """
@@ -58,9 +56,7 @@ Return a newly sampled state of a random walker, with updated elements on its
 """
 function rand(rw::RandomWalk, θ, i)
     θc = copy(θ)
-    θc[i] += additiveStep(rand(Uniform(-rw.ϵ[i], rw.ϵ[i])), rw.pos[i])
-    θc[i] *= multipStep(rand(Uniform(-rw.ϵ[i], rw.ϵ[i])), rw.pos[i])
-    θc
+    rand!(rw, θc, i)
 end
 
 

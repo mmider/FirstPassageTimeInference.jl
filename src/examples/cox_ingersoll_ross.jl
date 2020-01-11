@@ -19,7 +19,7 @@ function _b_transf(t, y::Float64, P::CoxIngersollRoss)
 end
 
 function _b_transf_prime(t, y::Float64, P::CoxIngersollRoss)
-    (0.5-2.0*P.α/P.σ^2)/y^2 - 0.5*θ
+    (0.5-2.0*P.α/P.σ^2)/y^2 - 0.5*P.θ
 end
 
 A(t, y::Float64, P::CoxIngersollRoss) = (2.0*P.α/P.σ^2-0.5)*log(y)-0.25*P.θ*y^2
