@@ -21,7 +21,7 @@ parameters = (
     ρ = 0.0,
     updt_param_idx = [1],
     t_kernel = CIRRandomWalk([0.1, 0.0, 0.0, 0.0]),
-    priors = (ϵ
+    priors = (
         ImproperPosPrior(),
         ImproperPrior(),
         ImproperPrior(),

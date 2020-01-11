@@ -19,12 +19,12 @@ function rand(rw::CIRRandomWalk, θ, i::Integer)
 end
 
 function rand!(rw::CIRRandomWalk, θ, ::Val{1})
-    θ[1] *= rand(Uniform(-rw.ϵ[1], rw.ϵ[1]))
+    θ[1] *= exp(rand(Uniform(-rw.ϵ[1], rw.ϵ[1])))
     θ
 end
 
 function rand!(rw::CIRRandomWalk, θ, ::Val{2})
-    θ[2] += rand(Uniform(-rw.ϵ[2], min(rw.ϵ[2], 0.75*θ[4]^2-θ[2])))
+    θ[2] += rand(Uniform(-min(rw.ϵ[2], θ[2]-0.75*θ[4]^2), rw.ϵ[2]))
     θ
 end
 
@@ -34,7 +34,7 @@ function rand!(rw::CIRRandomWalk, θ, ::Val{3})
 end
 
 function rand!(rw::CIRRandomWalk, θ, ::Val{4})
-    θ[4] *= rand(Uniform(-rw.ϵ[4], min(rw.ϵ[4], log(2.0*sqrt(θ[2]/3.0)/θ[4]))))
+    θ[4] *= exp(rand(Uniform(-rw.ϵ[4], min(rw.ϵ[4], log(2.0*sqrt(θ[2]/3.0)/θ[4])))))
     θ
 end
 
@@ -53,9 +53,9 @@ function rand(rw::CIRRandomWalk, θ)
 end
 
 function logpdf(rw::CIRRandomWalk, θ, θᵒ)
-    c₁ = -log(θᵒ[1]) - log(2*rw.ϵ[1])
-    c₂ = -log(rw.ϵ[2] + min(rw.ϵ[2], 0.75*θ[4]^2-θ[2]))
-    c₃ = -log(2*rw.ϵ[3])
-    c₄ = -log(θᵒ[4]) - log(rw.ϵ[4] + min(rw.ϵ[4], log(2.0*sqrt(θ[2]/3.0)/θ[4])))
+    c₁ = θ[1] != θᵒ[1] ? -log(θᵒ[1]) - log(2*rw.ϵ[1]) : 0.0
+    c₂ = θ[2] != θᵒ[2] ? -log(rw.ϵ[2] + min(rw.ϵ[2], θ[2]-0.75*θ[4]^2)) : 0.0
+    c₃ = θ[3] != θᵒ[3] ? -log(2*rw.ϵ[3]) : 0.0
+    c₄ = θ[4] != θᵒ[4] ? -log(θᵒ[4]) - log(rw.ϵ[4] + min(rw.ϵ[4], log(2.0*sqrt(θ[2]/3.0)/θ[4]))) : 0.0
     c₁ + c₂ + c₃ + c₄
 end
