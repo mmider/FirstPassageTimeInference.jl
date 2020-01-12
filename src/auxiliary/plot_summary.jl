@@ -1,7 +1,8 @@
 using PyPlot
 
 function standard_summary_plot(P, paths, θs, θ_truth, offset=100, num_intv_to_plot=6)
-    fig, ax = plt.subplots(4,1, figsize=(20,10))
+    num_params = length(θs[1])
+    fig, ax = plt.subplots(num_params+1,1, figsize=(20,10))
     plt.tight_layout()
     N, M = length(paths), length(paths[1])
     for i in max(1,N-offset):N
@@ -11,7 +12,7 @@ function standard_summary_plot(P, paths, θs, θ_truth, offset=100, num_intv_to_
         end
     end
 
-    for i in 1:length(θs[1])
+    for i in 1:num_params
         ax[i+1].plot([θ[i] for θ in θs])
         ax[i+1].plot([0.0, length(θs)], [θ_truth[i], θ_truth[i]], linestyle="dashed",
                      linewidth=3.0, color="orange")

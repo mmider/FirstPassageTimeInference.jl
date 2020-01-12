@@ -19,8 +19,8 @@ parameters = (
     dt =  0.01,
     num_mcmc_steps = 10000,
     ρ = 0.0,
-    updt_param_idx = [1],
-    t_kernel = CIRRandomWalk([0.1, 0.0, 0.0, 0.0]),
+    updt_param_idx = [1, 2, 3, 4],
+    t_kernel = CIRRandomWalk([0.2, 0.2, 2.0, 0.5]),
     priors = (
         ImproperPosPrior(),
         ImproperPrior(),
@@ -28,6 +28,9 @@ parameters = (
         ImproperPosPrior(),
     ),
     update_type = (
+        MetropolisHastings(),
+        MetropolisHastings(),
+        MetropolisHastings(),
         MetropolisHastings(),
     ),
     save_iter = 100,

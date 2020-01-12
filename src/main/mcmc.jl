@@ -9,7 +9,7 @@ abstract type StateSpaceType end
 struct MustBePositive <: StateSpaceType end
 struct Unrestricted <: StateSpaceType end
 struct MustBeAbove <: StateSpaceType
-    low_bd::Int64
+    low_bd::Float64
 end
 
 struct Workspace{TW,TX}
