@@ -22,6 +22,7 @@ for f in files _load_in(f) end
 _load_in("ornstein_uhlenbeck.jl", change_dir="examples")
 files = [
     "ornstein_uhlenbeck_conjug.jl",
+    "ornstein_uhlenbeck_conjug_mod.jl",
     "langevin_t_mod.jl",
     "cox_ingersoll_ross.jl",
 ]

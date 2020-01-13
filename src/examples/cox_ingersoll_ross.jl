@@ -5,24 +5,28 @@ struct CoxIngersollRoss <: ContinuousTimeProcess{Float64}
     σ::Float64
 end
 
+current(t, ::CoxIngersollRoss) = 0.0
+current_prime(t, ::CoxIngersollRoss) = 0.0
 state_space(P::CoxIngersollRoss) = MustBeAbove(P.low)
 
-b(t, y::Float64, P::CoxIngersollRoss) = P.α - P.θ*(y-P.low)
+b(t, y::Float64, P::CoxIngersollRoss) = P.α - P.θ*(y-P.low) + current(t, P)
 σ(t, y::Float64, P::CoxIngersollRoss) = P.σ * sqrt(y-P.low)
 
 function ϕ(t, y::Float64, P::CoxIngersollRoss)
-    0.5*(_b_transf(t, y, P)^2 + _b_transf_prime(t, y, P))
+    cur_prime = current_prime(t, P)
+    ∂ₜA = cur_prime != 0.0 ? 2.0/P.σ^2*log(y)*cur_prime : 0.0
+    return 0.5*(_b_transf(t, y, P)^2 + _b_transf_prime(t, y, P)) + ∂ₜA
 end
 
 function _b_transf(t, y::Float64, P::CoxIngersollRoss)
-    (2.0*P.α/P.σ^2-0.5)/y - 0.5*P.θ*y
+    (2.0*(P.α+current(t,P))/P.σ^2-0.5)/y - 0.5*P.θ*y
 end
 
 function _b_transf_prime(t, y::Float64, P::CoxIngersollRoss)
-    (0.5-2.0*P.α/P.σ^2)/y^2 - 0.5*P.θ
+    (0.5-2.0*(P.α+current(t,P))/P.σ^2)/y^2 - 0.5*P.θ
 end
 
-A(t, y::Float64, P::CoxIngersollRoss) = (2.0*P.α/P.σ^2-0.5)*log(y)-0.25*P.θ*y^2
+A(t, y::Float64, P::CoxIngersollRoss) = (2.0*(P.α+current(t,P))/P.σ^2-0.5)*log(y)-0.25*P.θ*y^2
 
 η(t, y::Float64, P::CoxIngersollRoss) = 2.0/P.σ*sqrt(y-P.low)
 

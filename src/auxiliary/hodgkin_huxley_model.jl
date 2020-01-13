@@ -130,7 +130,6 @@ function _dirty_reset_fpt(t0, x0, xT, dt, P)
     y, t
 end
 function run_experiment(t0, x0, reset_lvl, threshold, dt, P, num_obs)
-
     y =  x0
     t = t0
     obs_times = zeros(Float64, num_obs)
@@ -207,10 +206,56 @@ data₂ = @format_τ @τ_summary run_experiment(sim_parameters...)
 
 current(t, P::HodgkinHuxley) = 4.0
 data₃ = @format_τ @τ_summary run_experiment(sim_parameters...)
-
+₁
 current(t, P::HodgkinHuxley) = 2.0
 data₄ = @format_τ @τ_summary run_experiment(sim_parameters...)
 
 
 save_τ_to_file([data₁, data₂, data₃, data₄],
                joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
+
+#------------------------------------------------------------------------------#
+#                       Some auxiliary, summary results
+#------------------------------------------------------------------------------#
+using KernelDensity
+
+function plot_τ_hist(τs, ax = nothing)
+    if ax === nothing
+        fig, ax = plt.subplots()
+    end
+    ax.hist(τs, bins=300, normed=1)
+    kde_τ = kde(τs)
+    ax.plot(kde_τ.x, kde_τ.density)
+    plt.tight_layout()
+    ax
+end
+
+sim_parameters = (
+    t0 = 0.0,
+    y0 = y0,
+    reset_lvl = -9.9,
+    threshold = 10.0,
+    dt = 0.01,
+    P = HodgkinHuxley(parameters...),
+    num_obs = 100000,
+)
+
+Random.seed!(4)
+current(t, P::HodgkinHuxley) = 8.0
+τ₁ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+
+current(t, P::HodgkinHuxley) = 6.0
+τ₂ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+
+current(t, P::HodgkinHuxley) = 4.0
+τ₃ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+
+current(t, P::HodgkinHuxley) = 2.0
+τ₄ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+
+
+fig, ax = plt.subplots(2, 2, figsize=(15, 15))
+plot_τ_hist(τ₁, ax[1,1])
+plot_τ_hist(τ₂, ax[1,2])
+plot_τ_hist(τ₃, ax[2,1])
+plot_τ_hist(τ₄, ax[2,2])
