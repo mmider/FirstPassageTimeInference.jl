@@ -106,6 +106,12 @@ function swapRepo!(ws::Workspace)
     end
 end
 
+function swap_likhd!(ws::Workspace)
+    for i in 1:ws.N
+        ws.ll[i], ws.llᵒ[i] = ws.llᵒ[i], ws.ll[i]
+    end
+end
+
 function impute!(ws::Workspace, P, ρ)
     for i in 1:ws.N
         sampleBB!(ws.WWᵒ[i], ws.Wnr)
@@ -167,8 +173,13 @@ function updateParams!(::ConjugateUpdate, ws::Workspace, P, θ, tKernel, idx,
     θᵒ = conjugateDraw(θ, ws.XX, P, prior)
     Pᵒ = clone(P, θᵒ)
     for i in 1:ws.N
-        ws.ll[i] = pathLogLikhd(ws.XX[i], Pᵒ)
+        ws.llᵒ[i] = pathLogLikhd(ws.XX[i], Pᵒ)
     end
+    sum(ws.llᵒ) == -Inf && return false, θ, P # sample outside of support
+
+    swap_likhd!(ws)
+    ll = sum(ws.ll) + obsLogLikhd(obs, obsTimes, Pᵒ)
+
     verbose && print("it: ", it, ", ll: ", round(ll, digits=3), "\n")
     true, θᵒ, Pᵒ
 end

@@ -4,7 +4,7 @@ include(joinpath("..", "FirstPassageTimeInference_for_tests.jl"))
 #                              DATA SIMULATION                                 #
 #------------------------------------------------------------------------------#
 using Random
-θ = [0.1, 15.0, 1.0]
+θ = [0.1, 1.5, 1.0]
 P = OrnsteinUhlenbeck(θ...)
 parameters = [
     (l=0.0, L=10.0, dt=0.00001, P=P, N=30, ϵ=0.0),

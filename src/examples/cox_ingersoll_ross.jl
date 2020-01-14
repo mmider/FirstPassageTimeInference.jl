@@ -36,3 +36,6 @@ A(t, y::Float64, P::CoxIngersollRoss) = (2.0*(P.α+current(t,P))/P.σ^2-0.5)*log
 params(P::CoxIngersollRoss) = [P.θ, P.α, P.low, P.σ]
 
 clone(P::CoxIngersollRoss, θ) = CoxIngersollRoss(θ...)
+
+φ(t, y::Float64, P::CoxIngersollRoss) = @SVector[-0.5*y, 2.0/(P.σ^2*y)]
+φᶜ(t, y::Float64, P::CoxIngersollRoss) = (2.0*current(t, P)/P.σ^2-0.5)/y

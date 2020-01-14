@@ -30,7 +30,7 @@ clone(P::OrnsteinUhlenbeckAlt, θ) = OrnsteinUhlenbeckAlt(θ...)
 φ(y::Float64, P::OrnsteinUhlenbeckAlt) = φ(nothing, y, P)
 φ(t, y::Float64, P::OrnsteinUhlenbeckAlt) = @SVector[-y, 1.0/P.σ]
 
-function conjugateDraw(θ, XX, P::OrnsteinUhlenbeckAlt, prior)
+function conjugateDraw(θ, XX, P::T, prior) where T <: Union{OrnsteinUhlenbeckAlt,OrnsteinUhlenbeckMod,CoxIngersollRoss}
     μ = @SVector[0.0, 0.0]
     𝓦 = μ*μ'
     ϑ = @SVector[θ[1], θ[2]]

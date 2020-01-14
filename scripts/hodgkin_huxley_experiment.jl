@@ -30,7 +30,7 @@ data = read_τ_data(joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
 #------------------------------------------------------------------------------#
 
 #data = map(x-> x[1:10], data)
-trial_lengths = map(x->x[end][2], data[1:end])
+trial_lengths = map(x->x[end][2], data)
 
 τs = begin
     data_new = [data[1]]
@@ -48,15 +48,15 @@ Xτs = [(-10.0, 10.0) for _ in τs]
 #------------------------------------------------------------------------------#
 #******************************************************************************#
 
-current(t, ::OrnsteinUhlenbeckMod) = (
+current(t, ::OrnsteinUhlenbeck) = (
     2 +
     2 * (t <= trial_lengths[3]) +
     2 * (t <= trial_lengths[2]) +
     2 * (t <= trial_lengths[1])
 )
-current_prime(t, ::OrnsteinUhlenbeckMod) = 0.0
+current_prime(t, ::OrnsteinUhlenbeck) = 0.0
 
-P = OrnsteinUhlenbeckMod(0.1, 1.0, 1.0)
+P = OrnsteinUhlenbeck(0.1, 1.0, 1.0)
 
 parameters = (
     P = P,
@@ -107,16 +107,16 @@ end
     θs = θs,
 )
 
-current(t, ::OrnsteinUhlenbeckMod) = 8.0
+current(t, ::OrnsteinUhlenbeck) = 8.0
 τ₁_OU = run_randomised_experiment(τ_parameters...)
 
-current(t, ::OrnsteinUhlenbeckMod) = 6.0
+current(t, ::OrnsteinUhlenbeck) = 6.0
 τ₂_OU = run_randomised_experiment(τ_parameters...)
 
-current(t, ::OrnsteinUhlenbeckMod) = 4.0
+current(t, ::OrnsteinUhlenbeck) = 4.0
 τ₃_OU = run_randomised_experiment(τ_parameters...)
 
-current(t, ::OrnsteinUhlenbeckMod) = 2.0
+current(t, ::OrnsteinUhlenbeck) = 2.0
 τ₄_OU = run_randomised_experiment(τ_parameters...)
 
 

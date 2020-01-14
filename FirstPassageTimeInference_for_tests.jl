@@ -21,10 +21,10 @@ for f in files _load_in(f) end
 
 _load_in("ornstein_uhlenbeck.jl", change_dir="examples")
 files = [
-    "ornstein_uhlenbeck_conjug.jl",
-    "ornstein_uhlenbeck_conjug_mod.jl",
-    "langevin_t_mod.jl",
+    "langevin_t.jl",
     "cox_ingersoll_ross.jl",
+    "cox_ingersoll_ross_alt.jl",
+    "conjug_updt_ou_cir.jl"
 ]
 for f in files _load_in(f) end
 
@@ -33,6 +33,7 @@ _load_in("simulate_data.jl")
 
 _load_in("cir_random_walk.jl",
          change_dir = joinpath("examples", "custom_kernels"))
+_load_in("cir_alt_random_walk.jl")
 
 OUT_DIR = joinpath(Base.source_dir(), "output")
 mkpath(OUT_DIR)

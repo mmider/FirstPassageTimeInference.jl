@@ -7,7 +7,7 @@ function standard_summary_plot(P, paths, θs, θ_truth, offset=100, num_intv_to_
     N, M = length(paths), length(paths[1])
     for i in max(1,N-offset):N
         for j in 1:min(M,num_intv_to_plot)
-            ax[1].plot(paths[i][j].tt, [η⁻¹(x, P) for x in paths[i][j].yy],
+            ax[1].plot(paths[i][j].tt, paths[i][j].yy,
                        label="", alpha=0.2, color="steelblue", linewidth=0.4)
         end
     end

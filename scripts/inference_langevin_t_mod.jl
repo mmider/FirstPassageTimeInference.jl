@@ -1,18 +1,17 @@
 include(joinpath("..", "FirstPassageTimeInference_for_tests.jl"))
 
-
 #------------------------------------------------------------------------------#
 #                              DATA SIMULATION                                 #
 #------------------------------------------------------------------------------#
 using Random
 θ = [5.0, 0.0, 1.0]
-f(t) = 0.0#10*sin(π/5.0*t)
-f_prime(t) = 0.0#10*π/5.0*cos(π/5.0*t)
-P = LangevinTMod(θ..., f, f_prime)
+current(t, ::LangevinT) = 10*sin(π/5.0*t)
+current_prime(t, ::LangevinT) = 10*π/5.0*cos(π/5.0*t)
+P = LangevinT(θ...)
 parameters = [
-    (l=-10.0, L=-6.0, dt=0.000001, P=P, N=40, ϵ=0.0),
-    (l=-14.0, L=-6.0, dt=0.000001, P=P, N=40, ϵ=0.0),
-    (l=-24.0, L=-20.0, dt=0.000001, P=P, N=40, ϵ=0.0),
+    (l=-10.0, L=-6.0, dt=0.00001, P=P, N=40, ϵ=0.0),
+    (l=-14.0, L=-6.0, dt=0.00001, P=P, N=40, ϵ=0.0),
+    (l=-24.0, L=-20.0, dt=0.00001, P=P, N=40, ϵ=0.0),
 ]
 Random.seed!(4)
 
@@ -25,12 +24,12 @@ Xτs = [(parameters[1].l, parameters[1].L) for _ in 1:length(τs)]
 using LinearAlgebra
 
 parameters = (
-    P = LangevinTMod(20.0, 0.0, 4.0, f, f_prime),
+    P = LangevinT(20.0, 0.0, 4.0),
     dt = 0.01,
     num_mcmc_iter = 10000,
     ρ = 0.0,
-    updt_param_idx = [1, 3],
-    t_kernel = RandomWalk([1.0, 10.0, 0.7], [true, false, true]),
+    updt_param_idx = [1, 2, 3],
+    t_kernel = RandomWalk([1.0, 1.0, 0.7], [true, false, true]),
     priors = (
         ImproperPosPrior(),
         ImproperPrior(),
