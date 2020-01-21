@@ -1,33 +1,79 @@
 using StaticArrays
 using LinearAlgebra
+using Parameters
+const ℝ{N} = SArray{Tuple{N},Float64,1,N} where N
 
+#==============================================================================#
+#
+#         Hodkin-Huxley model with the stochastic synaptic input
+#
+#==============================================================================#
 
-#------------------------------------------------------------------------------#
-#                   Definition of the Hodkin-Huxley model
-#------------------------------------------------------------------------------#
+abstract type HodgkinHuxley end
 
-struct HodgkinHuxley
-    c_m::Float64
-    g_K::Float64
-    g_Na::Float64
-    g_l::Float64
-    v_K::Float64
-    v_Na::Float64
-    v_l::Float64
-    σ::SArray{Tuple{4,4},Float64,2,16}
+struct OU_params
+    θ::Float64
+    μ::Float64
+    σ::Float64
 end
 
-function b(t, y::SArray{Tuple{4},Float64,1,4}, P::HodgkinHuxley)
-    @SVector[(current(t, P)
-              - P.g_K * y[2]^4*(y[1]-P.v_K)
-              - P.g_Na * y[3]^3*y[4]*(y[1]-P.v_Na)
-              - P.g_l * (y[1] - P.v_l))/P.c_m,
+@with_kw struct HodgkinHuxleySSI <: HodgkinHuxley # SSI: stochastic synaptic input
+    # ------------
+    # membrane capacitance
+    c_m::Float64    = 1.0
+    # ------------
+    # maximum conductances per unit area:
+    g_K::Float64    = 36.0      # for potassium
+    g_Na::Float64   = 120.0     # sodium
+    g_l::Float64    = 0.3       # and leak
+
+    # ------------
+    # equilibrium potentials
+    v_K::Float64    = -12.0     # for potassium
+    v_Na::Float64   = 115.0     # sodium
+    v_l::Float64    = 10.0      # leak
+    v_E::Float64    # excitatory synaptic input
+    v_I::Float64    # inhibitory synaptic input
+
+    # -----------
+    # total membrane area
+    membrane_area::Float64  = 1.0
+
+    # ----------
+    # parameters of the synaptic input
+    E::OU_params # excitatory
+    I::OU_params # inhibitory
+end
+
+resting_HH = (v0 = 0.0, m0 = 0.0529, h0 = 0.5961, n0 = 0.3177)
+
+function synaptic_current(t, y::ℝ{6}, P::HodgkinHuxleySSI)
+    ( y[5]*(P.v_E - y[1]) + y[6]*(P.v_I - y[1]) ) / P.membrane_area
+end
+
+function standard_HH_currents(t, y, P::T) where {T<:HodgkinHuxley}
+    ( P.g_K * y[2]^4*(P.v_K-y[1])
+     + P.g_Na * y[3]^3*y[4]*(P.v_Na-y[1])
+     + P.g_l * (P.v_l-y[1]) )
+end
+
+drift(y::Float64, p::OU_params) = p.θ*(p.μ-y)
+
+function drift(t, y::ℝ{6}, P::HodgkinHuxleySSI)
+    @SVector[(synaptic_current(t, y, P) + standard_HH_currents(t, y, P))/P.c_m,
               α_n(y[1]) * (1-y[2]) - β_n(y[1]) * y[2],
               α_m(y[1]) * (1-y[3]) - β_m(y[1]) * y[3],
-              α_h(y[1]) * (1-y[4]) - β_h(y[1]) * y[4]]
+              α_h(y[1]) * (1-y[4]) - β_h(y[1]) * y[4],
+              drift(y[5], P.E),
+              drift(y[6], P.I)]
 end
 
-σ(t, y::SArray{Tuple{4},Float64,1,4}, P::HodgkinHuxley) = P.σ
+σ(t, y::ℝ{6}, P::HodgkinHuxleySSI) = @SMatrix[ 0.0 0.0;
+                                               0.0 0.0;
+                                               0.0 0.0;
+                                               0.0 0.0;
+                                               P.E.σ 0.0;
+                                               0.0 P.I.σ ]
 
 function α_n(y::Float64)
     x = 0.1*(10.0 - y)
@@ -48,50 +94,83 @@ end
 β_h(y::Float64) = 1.0/(exp(3.0-0.1*y)+1.0)
 
 
-#------------------------------------------------------------------------------#
-#                         Exploratory visualisations
-#------------------------------------------------------------------------------#
+#==============================================================================#
+#
+#         Some parametrisations from A. Destexhe et al. 2001
+#
+#==============================================================================#
 
-function _dirty_simulate(y0, tt, P)
+layer_VI = (
+    area = 34636.0,
+    R_in = 58.9,
+    E = OU_params(1.0/2.7, 0.012, 0.003),
+    I = OU_params(1.0/10.5, 0.057, 0.0066)
+)
+
+layer_III = (
+    area = 20321.0,
+    R_in = 94.2,
+    E = OU_params(1.0/7.8, 0.006, 0.0019),
+    I = OU_params(1.0/8.8, 0.044, 0.0069)
+)
+
+layer_Va = (
+    area = 55017.0,
+    R_in = 38.9,
+    E = OU_params(1.0/2.6, 0.018, 0.035),
+    I = OU_params(1.0/8.0, 0.098, 0.0092)
+)
+
+layer_Vb = (
+    area = 93265.0,
+    R_in = 23.1,
+    E = OU_params(1.0/2.8, 0.029, 0.0042),
+    I = OU_params(1.0/8.5, 0.16, 0.01)
+)
+
+
+#==============================================================================#
+#
+#                           Visualisations
+#
+#==============================================================================#
+
+function _simulate(noise_type::Type{T}, y0, tt, P) where T
     N = length(tt)
-    noise = randn(typeof(y0), N-1)
+    noise = randn(T, N-1)
     XX = zeros(typeof(y0), N)
     XX[1] = y0
     for i in 1:N-1
         x = XX[i]
         dt = tt[i+1] - tt[i]
-        XX[i+1] = x + b(tt[i], x, P) * dt + sqrt(dt) * σ(tt[i], x, P) * noise[i]
+        XX[i+1] = x + drift(tt[i], x, P) * dt + sqrt(dt) * σ(tt[i], x, P) * noise[i]
     end
     XX
 end
 
 
-parameters = (
-    c_m = 1.0,
-    g_K = 36.0,
-    g_Na = 120.0,
-    g_l = 0.3,
-    v_K = -12.0,
-    v_Na = 115.0,
-    v_l = 10.613,
-    σ = @SMatrix [ 0.001  0.0  0.0  0.0;
-                    0.0 0.01  0.0  0.0;
-                    0.0  0.0 0.01  0.0;
-                    0.0  0.0  0.0 0.01;]
+
+P_HH = HodgkinHuxleySSI(
+    #= modifying the default values of the Hodgkin-Huxley model
+    c_m = layer_VI.area/1e6,
+    g_l = 0.01559,
+    g_K = 3.4636,
+    g_Na = 2.4245,
+    # end of default values modifications =#
+    v_E = 80.0,
+    v_I = 5.0,
+    E = layer_VI.E,
+    I = layer_VI.I
 )
 
-current(t, P::HodgkinHuxley) = 2.0
-
-P_HH = HodgkinHuxley(parameters...)
-
 tt = 0.0:0.001:500.0
-y0 = @SVector [0.0, 0.3, 0.1, 0.5]#[0.0, 0.5, 0.5, 0.06]
-XX = _dirty_simulate(y0, tt, P_HH)
+y0 = ℝ{6}(resting_HH..., aux.E.μ, aux.I.μ)
+XX = _simulate(ℝ{2}, y0, tt, P_HH)
 
 using PyPlot
 
-fig, ax = plt.subplots(4,1, figsize=(15,10))
-for i in 1:4
+fig, ax = plt.subplots(6,1, figsize=(15,10))
+for i in 1:6
     ax[i].plot(tt, map(x->x[i], XX))
 end
 ax[1].plot([0, 500], [-9.9,-9.9], linestyle="dashed", color="red")
@@ -102,11 +181,14 @@ plt.tight_layout()
 
 
 
-#------------------------------------------------------------------------------#
-#                               the main experiment
-#------------------------------------------------------------------------------#
+#==============================================================================#
+#
+#                           THE MAIN EXPERIMENT
+#           NOTE this is deprecated due to change of HH model above
+#
+#==============================================================================#
 
-function _dirty_simulate_fpt(t0, x0, xT, dt, P)
+function _simulate_fpt(t0, x0, xT, dt, P)
     y = x0
     t = t0
     sqdt = √dt
@@ -118,7 +200,7 @@ function _dirty_simulate_fpt(t0, x0, xT, dt, P)
     y, t
 end
 
-function _dirty_reset_fpt(t0, x0, xT, dt, P)
+function _reset_fpt(t0, x0, xT, dt, P)
     y = x0
     t = t0
     sqdt = √dt
@@ -136,10 +218,10 @@ function run_experiment(t0, x0, reset_lvl, threshold, dt, P, num_obs)
     down_cross_times = zeros(Float64, num_obs)
     obs_counter = 0
     while obs_counter < num_obs
-        y, t = _dirty_simulate_fpt(t, y, threshold, dt, P)
+        y, t = _simulate_fpt(t, y, threshold, dt, P)
         obs_counter += 1
         obs_times[obs_counter] = t
-        y, t = _dirty_reset_fpt(t, y, reset_lvl, dt, P)
+        y, t = _reset_fpt(t, y, reset_lvl, dt, P)
         down_cross_times[obs_counter] = t
     end
     obs_times, down_cross_times
