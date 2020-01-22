@@ -1,7 +1,11 @@
 using StaticArrays
-using LinearAlgebra
+using LinearAlgebra, Statistics
 using Parameters
+using Random
+using PyPlot
 const ℝ{N} = SArray{Tuple{N},Float64,1,N} where N
+
+OUT_DIR = joinpath(Base.source_dir(), "..", "..", "output")
 
 #==============================================================================#
 #
@@ -129,7 +133,7 @@ layer_Vb = (
 )
 
 artificial = (
-    E = OU_params(1.0/2.0, 0.18, 0.0125),
+    E = OU_params(1.0/2.0, 0.17, 0.0125),
     I = OU_params(1.0/8.0, 0.1125, 0.00125),
 )
 
@@ -179,9 +183,7 @@ tt = 0.0:0.0001:T
 y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 XX = _simulate(ℝ{2}, y0, tt, P_HH)
 
-using PyPlot
-
-function quick_plot(tt, XX, skip=100, reset_lvl=-9.9, threshold=13.0)
+function quick_plot(tt, XX, skip=100, reset_lvl=-8.5, threshold=12.0)
     # Compute the effective synaptic current:
     I_t = map( (t,y) -> synaptic_current(t, y, P_HH), tt, XX)
 
@@ -199,77 +201,73 @@ function quick_plot(tt, XX, skip=100, reset_lvl=-9.9, threshold=13.0)
     ax[1].plot([0, T], [threshold, threshold], linestyle="dashed", color="green")
 
     plt.tight_layout()
+    ax
 end
 
-quick_plot(tt, XX)
-
-
-
-
-
-
+ax = quick_plot(tt, XX)
+# zoom-in to see if the reset level makes sense
+ax[1].set_ylim([-8.8, -8.2])
+# zoom-in to see if the threshold level makes sense
+ax[1].set_ylim([10.0, 13.0])
 
 #==============================================================================#
 #
 #                           THE MAIN EXPERIMENT
-#           NOTE this is deprecated due to change of HH model above
 #
 #==============================================================================#
 
-function _simulate_fpt(t0, x0, xT, dt, P)
+crossing_condition_not_satisfied(y, threshold, ::Val{true}) = y < threshold
+crossing_condition_not_satisfied(y, threshold, ::Val{false}) = y > threshold
+
+function _simulate_fpt(noise_type::Type{K}, t0, x0, xT, dt, P, up_crossing=true
+                       ) where K
     y = x0
     t = t0
     sqdt = √dt
-    data_type = typeof(x0)
-    while y[1] < xT
-        y += b(t, y, P) * dt + sqdt * σ(t, y, P) * randn(data_type)
+    crossing_type = Val{up_crossing}()
+    while crossing_condition_not_satisfied(y[1], xT, crossing_type)
+        y += drift(t, y, P) * dt + sqdt * σ(t, y, P) * randn(K)
         t += dt
     end
     y, t
 end
 
-function _reset_fpt(t0, x0, xT, dt, P)
-    y = x0
-    t = t0
-    sqdt = √dt
-    data_type = typeof(x0)
-    while y[1] > xT
-        y += b(t, y, P) * dt + sqdt * σ(t, y, P) * randn(data_type)
-        t += dt
-    end
-    y, t
-end
-function run_experiment(t0, x0, reset_lvl, threshold, dt, P, num_obs)
+function run_experiment(noise_type::Type{K}, t0, x0, reset_lvl, threshold, dt,
+                        P, num_obs) where K
     y =  x0
     t = t0
     obs_times = zeros(Float64, num_obs)
     down_cross_times = zeros(Float64, num_obs)
     obs_counter = 0
     while obs_counter < num_obs
-        y, t = _simulate_fpt(t, y, threshold, dt, P)
+        y, t = _simulate_fpt(noise_type, t, y, threshold, dt, P, true)
         obs_counter += 1
         obs_times[obs_counter] = t
-        y, t = _reset_fpt(t, y, reset_lvl, dt, P)
+        y, t = _simulate_fpt(noise_type, t, y, reset_lvl, dt, P, false)
         down_cross_times[obs_counter] = t
     end
     obs_times, down_cross_times
 end
 
 macro τ_summary(f)
-    τs, dc = eval(f)
-    ϵs = dc .- τs
-    println("------------------------------------------------")
-    println("mean for ϵ: ", round(mean(ϵs), digits=2), ", confidence intv: (",
-            round(mean(ϵs)-2.0*std(ϵs), digits=2), ", ",
-            round(mean(ϵs)+2.0*std(ϵs), digits=2), ").")
-    println("------------------------------------------------")
-    τs, dc
+    return quote
+        τs, dc = $(esc(f))
+        ϵs = dc .- τs
+        println("------------------------------------------------")
+        println("mean for ϵ: ", round(mean(ϵs), digits=2), ", confidence intv: (",
+                round(mean(ϵs)-2.0*std(ϵs), digits=2), ", ",
+                round(mean(ϵs)+2.0*std(ϵs), digits=2), ").")
+        println("------------------------------------------------")
+        τs, dc
+    end
 end
 
 macro format_τ(f)
-    τs, dc = eval(f)
-    println("reformatting data...")
-    collect(zip(dc[1:end-1], τs[2:end]))
+    return quote
+        τs, dc = $(esc(f))
+        println("reformatting data...")
+        collect(zip(dc[1:end-1], τs[2:end]))
+    end
 end
 
 function save_τ_to_file(datasets, filename)
@@ -294,78 +292,91 @@ function save_τ_to_file(datasets, filename)
     print("Successfully written to a file ", filename, ".")
 end
 
-
-y0 = @SVector [0.0, 0.3, 0.1, 0.5]#[0.0, 0.5, 0.5, 0.06]
-sim_parameters = (
-    t0 = 0.0,
-    y0 = y0,
-    reset_lvl = -9.9,
-    threshold = 10.0,
-    dt = 0.001,
-    P = HodgkinHuxley(parameters...),
-    num_obs = 30,
-)
-
-
 Random.seed!(4)
-current(t, P::HodgkinHuxley) = 8.0
-data₁ = @format_τ @τ_summary run_experiment(sim_parameters...)
 
-current(t, P::HodgkinHuxley) = 6.0
-data₂ = @format_τ @τ_summary run_experiment(sim_parameters...)
+# perform three experiments with various levels of mean excitatory input
 
-current(t, P::HodgkinHuxley) = 4.0
-data₃ = @format_τ @τ_summary run_experiment(sim_parameters...)
-₁
-current(t, P::HodgkinHuxley) = 2.0
-data₄ = @format_τ @τ_summary run_experiment(sim_parameters...)
+data = map([0.19, 0.21, 0.23]) do g_E
+    neuron = (
+        E = OU_params(1.0/2.0, g_E, 0.0125),
+        I = OU_params(1.0/8.0, 0.1125, 0.00125),
+    )
+    y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 
+    sim_parameters = (
+        noise_type = ℝ{2},
+        t0 = 0.0,
+        x0 = y0,
+        reset_lvl = -8.3,
+        threshold = 13.0,
+        dt = 0.001,
+        P = HodgkinHuxleySSI(
+            v_E = 75.0,
+            v_I = 0.0,
+            E = neuron.E,
+            I = neuron.I
+        ),
+        num_obs = 31,
+    )
+    @format_τ @τ_summary run_experiment(sim_parameters...)
+end
 
-save_τ_to_file([data₁, data₂, data₃, data₄],
-               joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
+save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
 
-#------------------------------------------------------------------------------#
-#                       Some auxiliary, summary results
-#------------------------------------------------------------------------------#
+#==============================================================================#
+#
+#                   Visualise first-passage time densities
+#
+#==============================================================================#
 using KernelDensity
 
 function plot_τ_hist(τs, ax = nothing)
     if ax === nothing
         fig, ax = plt.subplots()
     end
-    ax.hist(τs, bins=300, normed=1)
+    ax.hist(τs, bins=300, density=true)
     kde_τ = kde(τs)
     ax.plot(kde_τ.x, kde_τ.density)
     plt.tight_layout()
     ax
 end
 
-sim_parameters = (
-    t0 = 0.0,
-    y0 = y0,
-    reset_lvl = -9.9,
-    threshold = 10.0,
-    dt = 0.01,
-    P = HodgkinHuxley(parameters...),
-    num_obs = 100000,
-)
-
-Random.seed!(4)
-current(t, P::HodgkinHuxley) = 8.0
-τ₁ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
-
-current(t, P::HodgkinHuxley) = 6.0
-τ₂ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
-
-current(t, P::HodgkinHuxley) = 4.0
-τ₃ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
-
-current(t, P::HodgkinHuxley) = 2.0
-τ₄ = map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+function plot_many_τ_hist(τs)
+    N = length(τs)
+    fig, ax = plt.subplots(1, N, figsize=(15,5))
+    for i in 1:N
+        plot_τ_hist(τs[i], ax[i])
+    end
+    ax
+end
 
 
-fig, ax = plt.subplots(2, 2, figsize=(15, 15))
-plot_τ_hist(τ₁, ax[1,1])
-plot_τ_hist(τ₂, ax[1,2])
-plot_τ_hist(τ₃, ax[2,1])
-plot_τ_hist(τ₄, ax[2,2])
+τs = map([0.19, 0.21, 0.23]) do g_E
+    neuron = (
+        E = OU_params(1.0/2.0, g_E, 0.0125),
+        I = OU_params(1.0/8.0, 0.1125, 0.00125),
+    )
+    y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
+
+    sim_parameters = (
+        noise_type = ℝ{2},
+        t0 = 0.0,
+        x0 = y0,
+        reset_lvl = -8.3,
+        threshold = 13.0,
+        dt = 0.01,
+        P = HodgkinHuxleySSI(
+            v_E = 75.0,
+            v_I = 0.0,
+            E = neuron.E,
+            I = neuron.I
+        ),
+        num_obs = Int64(1e5),
+    )
+    map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
+end
+
+axs = plot_many_τ_hist(τs)
+# interesting zoom-in...
+for ax in axs ax.set_ylim([0.0, 0.02]) end
+for ax in axs ax.set_xlim([0, 100]) end
