@@ -5,7 +5,7 @@ const ℝ{N} = SArray{Tuple{N},Float64,1,N} where N
 
 #==============================================================================#
 #
-#         Hodkin-Huxley model with the stochastic synaptic input
+#           Hodkin-Huxley model with stochastic synaptic input
 #
 #==============================================================================#
 
@@ -45,7 +45,7 @@ end
     I::OU_params # inhibitory
 end
 
-resting_HH = (v0 = 0.0, m0 = 0.0529, h0 = 0.5961, n0 = 0.3177)
+resting_HH = (v0 = 0.0, n0 = 0.3177, m0 = 0.0529, h0 = 0.5961)
 
 function synaptic_current(t, y::ℝ{6}, P::HodgkinHuxleySSI)
     ( y[5]*(P.v_E - y[1]) + y[6]*(P.v_I - y[1]) ) / P.membrane_area
@@ -128,6 +128,15 @@ layer_Vb = (
     I = OU_params(1.0/8.5, 0.16, 0.01)
 )
 
+artificial = (
+    E = OU_params(1.0/2.0, 0.18, 0.0125),
+    I = OU_params(1.0/8.0, 0.1125, 0.00125),
+)
+
+artificial_excitatory = (
+    E = OU_params(1.0/2.0, 0.11, 0.0125),
+    I = OU_params(1.0/8.0, 0.0, 0.0),
+)
 
 #==============================================================================#
 #
@@ -149,6 +158,8 @@ function _simulate(noise_type::Type{T}, y0, tt, P) where T
 end
 
 
+# Pick out a type of the neuron for simulations
+neuron = artificial
 
 P_HH = HodgkinHuxleySSI(
     #= modifying the default values of the Hodgkin-Huxley model
@@ -157,26 +168,43 @@ P_HH = HodgkinHuxleySSI(
     g_K = 3.4636,
     g_Na = 2.4245,
     # end of default values modifications =#
-    v_E = 80.0,
-    v_I = 5.0,
-    E = layer_VI.E,
-    I = layer_VI.I
+    v_E = 75.0,
+    v_I = 0.0,
+    E = neuron.E,
+    I = neuron.I
 )
 
-tt = 0.0:0.001:500.0
-y0 = ℝ{6}(resting_HH..., aux.E.μ, aux.I.μ)
+T = 500.0
+tt = 0.0:0.0001:T
+y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 XX = _simulate(ℝ{2}, y0, tt, P_HH)
 
 using PyPlot
 
-fig, ax = plt.subplots(6,1, figsize=(15,10))
-for i in 1:6
-    ax[i].plot(tt, map(x->x[i], XX))
-end
-ax[1].plot([0, 500], [-9.9,-9.9], linestyle="dashed", color="red")
-ax[1].plot([0, 500], [10, 10], linestyle="dashed", color="green")
+function quick_plot(tt, XX, skip=100, reset_lvl=-9.9, threshold=13.0)
+    # Compute the effective synaptic current:
+    I_t = map( (t,y) -> synaptic_current(t, y, P_HH), tt, XX)
 
-plt.tight_layout()
+    fig, ax = plt.subplots(7,1, figsize=(15,10), sharex=true)
+    for i in 1:6
+        ax[i].plot(tt[1:skip:end], map(x->x[i], XX[1:skip:end]))
+    end
+    ax[7].plot(tt[1:skip:end], I_t[1:skip:end], color="green")
+
+    for (i, name) in enumerate(["memb. potential", "Potassium", "Sodium", "Leak",
+                                "Excitatory", "Inhibitory", "Net current"])
+        ax[i].set_ylabel(name)
+    end
+    ax[1].plot([0, T], [reset_lvl, reset_lvl], linestyle="dashed", color="red")
+    ax[1].plot([0, T], [threshold, threshold], linestyle="dashed", color="green")
+
+    plt.tight_layout()
+end
+
+quick_plot(tt, XX)
+
+
+
 
 
 
