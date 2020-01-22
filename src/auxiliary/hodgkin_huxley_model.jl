@@ -133,7 +133,7 @@ layer_Vb = (
 )
 
 artificial = (
-    E = OU_params(1.0/2.0, 0.17, 0.0125),
+    E = OU_params(1.0/2.0, 0.23, 0.0125),
     I = OU_params(1.0/8.0, 0.1125, 0.00125),
 )
 
@@ -144,7 +144,7 @@ artificial_excitatory = (
 
 #==============================================================================#
 #
-#                           Visualisations
+#                               Visualisations
 #
 #==============================================================================#
 
@@ -183,7 +183,8 @@ tt = 0.0:0.0001:T
 y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 XX = _simulate(ℝ{2}, y0, tt, P_HH)
 
-function quick_plot(tt, XX, skip=100, reset_lvl=-8.5, threshold=12.0)
+function quick_plot(tt, XX, skip=100; reset_lvl=-8.5, threshold=12.0,
+                    avg_synaptic_input=nothing)
     # Compute the effective synaptic current:
     I_t = map( (t,y) -> synaptic_current(t, y, P_HH), tt, XX)
 
@@ -199,16 +200,23 @@ function quick_plot(tt, XX, skip=100, reset_lvl=-8.5, threshold=12.0)
     end
     ax[1].plot([0, T], [reset_lvl, reset_lvl], linestyle="dashed", color="red")
     ax[1].plot([0, T], [threshold, threshold], linestyle="dashed", color="green")
+    if avg_synaptic_input !== nothing
+        ax[7].plot([0, T], [avg_synaptic_input,avg_synaptic_input],
+                   linestyle="dashed", color="orange")
+    end
 
     plt.tight_layout()
     ax
 end
 
-ax = quick_plot(tt, XX)
+ax = quick_plot(tt, XX; avg_synaptic_input=14.5)
+# zoom-in to see if the avg synaptic input makes sense
+ax[7].set_ylim([13.0, 16.0])
 # zoom-in to see if the reset level makes sense
 ax[1].set_ylim([-8.8, -8.2])
 # zoom-in to see if the threshold level makes sense
 ax[1].set_ylim([10.0, 13.0])
+
 
 #==============================================================================#
 #
@@ -295,7 +303,7 @@ end
 Random.seed!(4)
 
 # perform three experiments with various levels of mean excitatory input
-
+# avg synaptic input: {0.17 => 11.0, 0.19 => 12.5, 0.21 => 13.5, 0.23 => 14.5} 
 data = map([0.19, 0.21, 0.23]) do g_E
     neuron = (
         E = OU_params(1.0/2.0, g_E, 0.0125),
@@ -377,6 +385,6 @@ end
 end
 
 axs = plot_many_τ_hist(τs)
-# interesting zoom-in...
+# an interesting zoom-in...
 for ax in axs ax.set_ylim([0.0, 0.02]) end
 for ax in axs ax.set_xlim([0, 100]) end

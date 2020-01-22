@@ -5,6 +5,7 @@ struct CoxIngersollRossAlt <: ContinuousTimeProcess{Float64}
     σ::Float64
 end
 
+# default values for the `smooth` current
 current(t, ::CoxIngersollRossAlt) = 0.0
 current_prime(t, ::CoxIngersollRossAlt) = 0.0
 state_space(P::CoxIngersollRossAlt) = MustBeAbove(P.low)
