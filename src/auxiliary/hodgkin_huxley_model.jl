@@ -1,9 +1,17 @@
+#==============================================================================#
+#
+#       This file runs independently from the rest and is used to generate some
+#       data for the experiments and visualise the Hodgkin-Huxley model to
+#       better understand its dynamics
+#
+#==============================================================================#
+
 using StaticArrays
 using LinearAlgebra, Statistics
 using Parameters
 using Random
 using PyPlot
-const ℝ{N} = SArray{Tuple{N},Float64,1,N} where N
+const 𝕍{N} = SArray{Tuple{N},Float64,1,N} where N
 
 OUT_DIR = joinpath(Base.source_dir(), "..", "..", "output")
 
@@ -51,7 +59,7 @@ end
 
 resting_HH = (v0 = 0.0, n0 = 0.3177, m0 = 0.0529, h0 = 0.5961)
 
-function synaptic_current(t, y::ℝ{6}, P::HodgkinHuxleySSI)
+function synaptic_current(t, y::𝕍{6}, P::HodgkinHuxleySSI)
     ( y[5]*(P.v_E - y[1]) + y[6]*(P.v_I - y[1]) ) / P.membrane_area
 end
 
@@ -63,7 +71,7 @@ end
 
 drift(y::Float64, p::OU_params) = p.θ*(p.μ-y)
 
-function drift(t, y::ℝ{6}, P::HodgkinHuxleySSI)
+function drift(t, y::𝕍{6}, P::HodgkinHuxleySSI)
     @SVector[(synaptic_current(t, y, P) + standard_HH_currents(t, y, P))/P.c_m,
               α_n(y[1]) * (1-y[2]) - β_n(y[1]) * y[2],
               α_m(y[1]) * (1-y[3]) - β_m(y[1]) * y[3],
@@ -72,7 +80,7 @@ function drift(t, y::ℝ{6}, P::HodgkinHuxleySSI)
               drift(y[6], P.I)]
 end
 
-σ(t, y::ℝ{6}, P::HodgkinHuxleySSI) = @SMatrix[ 0.0 0.0;
+σ(t, y::𝕍{6}, P::HodgkinHuxleySSI) = @SMatrix[ 0.0 0.0;
                                                0.0 0.0;
                                                0.0 0.0;
                                                0.0 0.0;
@@ -138,7 +146,7 @@ artificial = (
 )
 
 artificial_excitatory = (
-    E = OU_params(1.0/2.0, 0.11, 0.0125),
+    E = OU_params(1.0/2.0, 0.2, 0.0125),
     I = OU_params(1.0/8.0, 0.0, 0.0),
 )
 
@@ -163,7 +171,7 @@ end
 
 
 # Pick out a type of the neuron for simulations
-neuron = artificial
+neuron = artificial_excitatory
 
 P_HH = HodgkinHuxleySSI(
     #= modifying the default values of the Hodgkin-Huxley model
@@ -180,8 +188,8 @@ P_HH = HodgkinHuxleySSI(
 
 T = 500.0
 tt = 0.0:0.0001:T
-y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
-XX = _simulate(ℝ{2}, y0, tt, P_HH)
+y0 = 𝕍{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
+XX = _simulate(𝕍{2}, y0, tt, P_HH)
 
 function quick_plot(tt, XX, skip=100; reset_lvl=-8.5, threshold=12.0,
                     avg_synaptic_input=nothing)
@@ -209,11 +217,11 @@ function quick_plot(tt, XX, skip=100; reset_lvl=-8.5, threshold=12.0,
     ax
 end
 
-ax = quick_plot(tt, XX; avg_synaptic_input=14.5)
+ax = quick_plot(tt, XX; avg_synaptic_input=15.0)
 # zoom-in to see if the avg synaptic input makes sense
 ax[7].set_ylim([13.0, 16.0])
 # zoom-in to see if the reset level makes sense
-ax[1].set_ylim([-8.8, -8.2])
+ax[1].set_ylim([-10.0, -8.2])
 # zoom-in to see if the threshold level makes sense
 ax[1].set_ylim([10.0, 13.0])
 
@@ -303,31 +311,36 @@ end
 Random.seed!(4)
 
 # perform three experiments with various levels of mean excitatory input
-# avg synaptic input: {0.17 => 11.0, 0.19 => 12.5, 0.21 => 13.5, 0.23 => 14.5} 
-data = map([0.19, 0.21, 0.23]) do g_E
-    neuron = (
+data = map([0.08, 0.11, 0.14, 0.17]) do g_E
+    neuron = (  # excitatory input only
         E = OU_params(1.0/2.0, g_E, 0.0125),
-        I = OU_params(1.0/8.0, 0.1125, 0.00125),
+        I = OU_params(1.0/8.0, 0.0, 0.0),
     )
-    y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
+    P = HodgkinHuxleySSI(
+        v_E = 75.0,
+        v_I = 0.0,
+        E = neuron.E,
+        I = neuron.I
+    )
+    print( "\n***\nStarting the experiment with g_E = $g_E\n",
+           "The 'average' synaptic input is: ",
+           P.E.μ*(P.v_E-resting_HH[1]), "\n" )
+
+    y0 = 𝕍{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 
     sim_parameters = (
-        noise_type = ℝ{2},
+        noise_type = 𝕍{2},
         t0 = 0.0,
         x0 = y0,
         reset_lvl = -8.3,
         threshold = 13.0,
         dt = 0.001,
-        P = HodgkinHuxleySSI(
-            v_E = 75.0,
-            v_I = 0.0,
-            E = neuron.E,
-            I = neuron.I
-        ),
+        P = P,
         num_obs = 31,
     )
     @format_τ @τ_summary run_experiment(sim_parameters...)
 end
+# cache values of synaptic input: 6.0, 8.25, 10.5, 12.75
 
 save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
 
@@ -338,53 +351,56 @@ save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"
 #==============================================================================#
 using KernelDensity
 
-function plot_τ_hist(τs, ax = nothing)
+function plot_τ_hist(τs, ax = nothing; nbins=300)
     if ax === nothing
         fig, ax = plt.subplots()
     end
-    ax.hist(τs, bins=300, density=true)
+    ax.hist(τs, bins=nbins, density=true)
     kde_τ = kde(τs)
     ax.plot(kde_τ.x, kde_τ.density)
     plt.tight_layout()
     ax
 end
 
-function plot_many_τ_hist(τs)
+function plot_many_τ_hist(τs; nbins=300, ax=nothing)
     N = length(τs)
-    fig, ax = plt.subplots(1, N, figsize=(15,5))
+    if ax === nothing
+        fig, ax = plt.subplots(1, N, figsize=(15,5))
+    end
     for i in 1:N
-        plot_τ_hist(τs[i], ax[i])
+        plot_τ_hist(τs[i], ax[i], nbins=nbins)
     end
     ax
 end
 
 
-τs = map([0.19, 0.21, 0.23]) do g_E
-    neuron = (
+τs_HH = map([0.08, 0.11, 0.14, 0.17]) do g_E
+    neuron = (  # excitatory input only
         E = OU_params(1.0/2.0, g_E, 0.0125),
-        I = OU_params(1.0/8.0, 0.1125, 0.00125),
+        I = OU_params(1.0/8.0, 0.0, 0.0),
     )
-    y0 = ℝ{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
+    P = HodgkinHuxleySSI(
+        v_E = 75.0,
+        v_I = 0.0,
+        E = neuron.E,
+        I = neuron.I
+    )
+    y0 = 𝕍{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 
     sim_parameters = (
-        noise_type = ℝ{2},
+        noise_type = 𝕍{2},
         t0 = 0.0,
         x0 = y0,
         reset_lvl = -8.3,
         threshold = 13.0,
         dt = 0.01,
-        P = HodgkinHuxleySSI(
-            v_E = 75.0,
-            v_I = 0.0,
-            E = neuron.E,
-            I = neuron.I
-        ),
+        P = P,
         num_obs = Int64(1e5),
     )
     map(x->x[2]-x[1], @format_τ @τ_summary run_experiment(sim_parameters...))
 end
 
-axs = plot_many_τ_hist(τs)
+axs = plot_many_τ_hist(τs_HH, nbins=600)
 # an interesting zoom-in...
 for ax in axs ax.set_ylim([0.0, 0.02]) end
 for ax in axs ax.set_xlim([0, 100]) end

@@ -224,5 +224,8 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
     end
     print("Acceptance rates for imputation: ", ws.numAccpt./numMCMCsteps, "\n")
     print("Acceptance rates for parameter update: ", numAccepted./numProp, "\n")
-    θs, paths
+    mean_estim_θ = [mean(map(x->x[i], θs)[div(numMCMCsteps,5)*2:end])
+                    for i in 1:length(θ)]
+    print("Estimated means for θ: $mean_estim_θ\n")
+    θs, paths, mean_estim_θ
 end
