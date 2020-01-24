@@ -7,7 +7,8 @@ end
 
 current(t, ::CoxIngersollRoss) = 0.0
 current_prime(t, ::CoxIngersollRoss) = 0.0
-state_space(P::CoxIngersollRoss) = MustBeAbove(P.low)
+# NOTE this is the state space of the Lamperti transformed diffusion !!!
+state_space(P::CoxIngersollRoss) = MustBePositive() #MustBeAbove(P.low)
 
 b(t, y::Float64, P::CoxIngersollRoss) = P.α - P.θ*(y-P.low) + current(t, P)
 σ(t, y::Float64, P::CoxIngersollRoss) = P.σ * sqrt(y-P.low)

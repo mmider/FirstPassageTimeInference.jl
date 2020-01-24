@@ -149,7 +149,12 @@ function updateParams!(::MetropolisHastings, ws::Workspace, P, θ, tKernel, idx,
     θᵒ = rand(tKernel, θ, idx)
     Pᵒ = clone(P, θᵒ)
     for i in 1:ws.N
-        ws.repoᵒ[i] = Reposit(ws.repo[i], η.(obsTimes[i], obs[i], [Pᵒ,Pᵒ])...)
+        try
+            # fast rejection if parameters are incorrect
+            ws.repoᵒ[i] = Reposit(ws.repo[i], η.(obsTimes[i], obs[i], [Pᵒ,Pᵒ])...)
+        catch DomainError
+            return false, θ, P
+        end
         Bessel!(Val{true}(), ws.WW[i], ws.XXᵒ[i], ws.repoᵒ[i])
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], Pᵒ)
     end
