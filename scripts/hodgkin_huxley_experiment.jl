@@ -162,6 +162,30 @@ parameters = (
 #------------------------------------------------------------------------------#
 ax = standard_summary_plot(P, paths, θs, estim_θ)
 
+
+τ_parameters = (
+    P = P,
+    l = Xτs[1][1],
+    L = Xτs[1][2],
+    dt = 0.01,
+    num_samples = Int64(1e3),
+    θs = θs,
+)
+
+state_space(P::CoxIngersollRoss) = MustBeAbove(P.low) #NOTE this is an ad-hoc change that will have to be dealt with better in the code later on...
+
+τs_CIR = map([6.0, 8.25, 10.5, 12.75]) do I_t
+    current(t, ::CoxIngersollRoss) = I_t
+    run_randomised_experiment(τ_parameters...)
+end
+
+state_space(P::CoxIngersollRoss) = MustBePositive() # reverting
+
+axs = plot_many_τ_hist(τs_CIR)
+plot_many_τ_hist(τs_HH, nbins=600, ax=axs)
+plt.show()
+
+
 #******************************************************************************#
 #------------------------------------------------------------------------------#
 #                     Run inference on Langevin-t process
