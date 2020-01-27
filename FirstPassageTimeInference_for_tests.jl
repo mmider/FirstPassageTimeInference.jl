@@ -12,7 +12,9 @@ files = [
     "reposit.jl",
     "brownian_bridges.jl",
     "bessel.jl",
+    "acceptance_tracker.jl",
     "mcmc.jl",
+    "adaptive_proposals.jl",
     "random_walk.jl",
     "priors.jl",
 ]

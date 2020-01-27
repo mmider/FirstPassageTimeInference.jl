@@ -14,7 +14,7 @@ using PyPlot
 const 𝕍{N} = SArray{Tuple{N},Float64,1,N} where N
 
 OUT_DIR = joinpath(Base.source_dir(), "..", "..", "output")
-
+include("hodgkin_huxley_model_supporting_functions.jl")
 #==============================================================================#
 #
 #           Hodkin-Huxley model with stochastic synaptic input
@@ -156,19 +156,8 @@ artificial_excitatory = (
 #
 #==============================================================================#
 
-function _simulate(noise_type::Type{T}, y0, tt, P) where T
-    N = length(tt)
-    noise = randn(T, N-1)
-    XX = zeros(typeof(y0), N)
-    XX[1] = y0
-    for i in 1:N-1
-        x = XX[i]
-        dt = tt[i+1] - tt[i]
-        XX[i+1] = x + drift(tt[i], x, P) * dt + sqrt(dt) * σ(tt[i], x, P) * noise[i]
-    end
-    XX
-end
-
+#NOTE functions `_simulate` and `quick_plot` are defined in a companion file
+# `hodgkin_huxley_supporting_functions.jl`
 
 # Pick out a type of the neuron for simulations
 neuron = artificial_excitatory
@@ -191,32 +180,6 @@ tt = 0.0:0.0001:T
 y0 = 𝕍{6}(resting_HH..., neuron.E.μ, neuron.I.μ)
 XX = _simulate(𝕍{2}, y0, tt, P_HH)
 
-function quick_plot(tt, XX, skip=100; reset_lvl=-8.5, threshold=12.0,
-                    avg_synaptic_input=nothing)
-    # Compute the effective synaptic current:
-    I_t = map( (t,y) -> synaptic_current(t, y, P_HH), tt, XX)
-
-    fig, ax = plt.subplots(7,1, figsize=(15,10), sharex=true)
-    for i in 1:6
-        ax[i].plot(tt[1:skip:end], map(x->x[i], XX[1:skip:end]))
-    end
-    ax[7].plot(tt[1:skip:end], I_t[1:skip:end], color="green")
-
-    for (i, name) in enumerate(["memb. potential", "Potassium", "Sodium", "Leak",
-                                "Excitatory", "Inhibitory", "Net current"])
-        ax[i].set_ylabel(name)
-    end
-    ax[1].plot([0, T], [reset_lvl, reset_lvl], linestyle="dashed", color="red")
-    ax[1].plot([0, T], [threshold, threshold], linestyle="dashed", color="green")
-    if avg_synaptic_input !== nothing
-        ax[7].plot([0, T], [avg_synaptic_input,avg_synaptic_input],
-                   linestyle="dashed", color="orange")
-    end
-
-    plt.tight_layout()
-    ax
-end
-
 ax = quick_plot(tt, XX; avg_synaptic_input=15.0)
 # zoom-in to see if the avg synaptic input makes sense
 ax[7].set_ylim([13.0, 16.0])
@@ -232,81 +195,9 @@ ax[1].set_ylim([10.0, 13.0])
 #
 #==============================================================================#
 
-crossing_condition_not_satisfied(y, threshold, ::Val{true}) = y < threshold
-crossing_condition_not_satisfied(y, threshold, ::Val{false}) = y > threshold
-
-function _simulate_fpt(noise_type::Type{K}, t0, x0, xT, dt, P, up_crossing=true
-                       ) where K
-    y = x0
-    t = t0
-    sqdt = √dt
-    crossing_type = Val{up_crossing}()
-    while crossing_condition_not_satisfied(y[1], xT, crossing_type)
-        y += drift(t, y, P) * dt + sqdt * σ(t, y, P) * randn(K)
-        t += dt
-    end
-    y, t
-end
-
-function run_experiment(noise_type::Type{K}, t0, x0, reset_lvl, threshold, dt,
-                        P, num_obs) where K
-    y =  x0
-    t = t0
-    obs_times = zeros(Float64, num_obs)
-    down_cross_times = zeros(Float64, num_obs)
-    obs_counter = 0
-    while obs_counter < num_obs
-        y, t = _simulate_fpt(noise_type, t, y, threshold, dt, P, true)
-        obs_counter += 1
-        obs_times[obs_counter] = t
-        y, t = _simulate_fpt(noise_type, t, y, reset_lvl, dt, P, false)
-        down_cross_times[obs_counter] = t
-    end
-    obs_times, down_cross_times
-end
-
-macro τ_summary(f)
-    return quote
-        τs, dc = $(esc(f))
-        ϵs = dc .- τs
-        println("------------------------------------------------")
-        println("mean for ϵ: ", round(mean(ϵs), digits=2), ", confidence intv: (",
-                round(mean(ϵs)-2.0*std(ϵs), digits=2), ", ",
-                round(mean(ϵs)+2.0*std(ϵs), digits=2), ").")
-        println("------------------------------------------------")
-        τs, dc
-    end
-end
-
-macro format_τ(f)
-    return quote
-        τs, dc = $(esc(f))
-        println("reformatting data...")
-        collect(zip(dc[1:end-1], τs[2:end]))
-    end
-end
-
-function save_τ_to_file(datasets, filename)
-    num_datasets = length(datasets)
-    num_lines = map(x->length(x), datasets)
-    @assert length(unique(num_lines)) == 1
-    num_lines = num_lines[1]
-
-    open(filename, "w") do f
-        for i in 1:num_datasets
-            ending = (i == num_datasets) ? "\n" : ", "
-            write(f, string("reset", i, ", up_crossing", i, ending))
-        end
-
-        for j in 1:num_lines
-            for i in 1:num_datasets
-                ending = (i == num_datasets) ? "\n" : ", "
-                write(f, string(datasets[i][j][1], ", ", datasets[i][j][2], ending))
-            end
-        end
-    end
-    print("Successfully written to a file ", filename, ".")
-end
+#NOTE functions `run_experiment` and `save_τ_to_file` as well as macros
+# `τ_summary`, `format_τ` are defined in a companion file
+# `hodgkin_huxley_supporting_functions.jl`
 
 Random.seed!(4)
 
@@ -349,30 +240,9 @@ save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"
 #                   Visualise first-passage time densities
 #
 #==============================================================================#
-using KernelDensity
 
-function plot_τ_hist(τs, ax = nothing; nbins=300)
-    if ax === nothing
-        fig, ax = plt.subplots()
-    end
-    ax.hist(τs, bins=nbins, density=true)
-    kde_τ = kde(τs)
-    ax.plot(kde_τ.x, kde_τ.density)
-    plt.tight_layout()
-    ax
-end
-
-function plot_many_τ_hist(τs; nbins=300, ax=nothing)
-    N = length(τs)
-    if ax === nothing
-        fig, ax = plt.subplots(1, N, figsize=(15,5))
-    end
-    for i in 1:N
-        plot_τ_hist(τs[i], ax[i], nbins=nbins)
-    end
-    ax
-end
-
+#NOTE a function `plot_many_τ_hist` is defined in a companion file
+# `hodgkin_huxley_supporting_functions.jl`
 
 τs_HH = map([0.08, 0.11, 0.14, 0.17]) do g_E
     neuron = (  # excitatory input only

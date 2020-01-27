@@ -2,7 +2,7 @@ using Distributions
 import Random: rand!, rand
 import Distributions: logpdf
 
-struct CIRRandomWalkAlt
+struct CIRRandomWalkAlt <: TunableTransitionKernel
     ϵ::Vector{Float64}
     function CIRRandomWalkAlt(ϵ::Vector{Float64})
         @assert length(ϵ) == 4

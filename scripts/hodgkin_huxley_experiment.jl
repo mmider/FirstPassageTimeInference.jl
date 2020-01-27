@@ -1,27 +1,9 @@
 include(joinpath("..", "FirstPassageTimeInference_for_tests.jl"))
+include(joinpath("..", "src", "auxiliary", "hodgkin_huxley_model_supporting_functions.jl"))
 
 #------------------------------------------------------------------------------#
 #                                Fetch the data
 #------------------------------------------------------------------------------#
-
-function read_τ_data(filename)
-    datasets = nothing
-    num_datasets = nothing
-    open(filename, "r") do f
-        for (i, line) in enumerate(eachline(f))
-            if i == 1
-                num_datasets = div(length(split(line, ",")), 2)
-                datasets = [Vector{Tuple{Float64, Float64}}() for _ in 1:num_datasets]
-            else
-                data_line = map(x->parse(Float64, x), split(line, ","))
-                for j in 1:num_datasets
-                    append!(datasets[j], [(data_line[2*j-1], data_line[2*j])])
-                end
-            end
-        end
-    end
-    datasets
-end
 
 data = read_τ_data(joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"))
 
@@ -88,6 +70,14 @@ parameters = (
 #------------------------------------------------------------------------------#
 ax = standard_summary_plot(P, paths, θs, estim_θ)
 
+"""
+    run_randomised_experiment(::T, l, L, dt, N, θs) where T <: ContinuousTimeProcess
+
+Sample first passage times for a diffusion with law of type `T` with parameters
+drawn at random from a Markov chain of parameters `θs`---effectively, this
+function performs sampling of first passage times from diffusion laws, whose
+parameter is integrated against its posterior distribution.
+"""
 function run_randomised_experiment(::T, l, L, dt, N, θs) where T <: ContinuousTimeProcess
     num_samples = length(θs)
     quarter_θs = div(num_samples, 4)
@@ -99,6 +89,7 @@ function run_randomised_experiment(::T, l, L, dt, N, θs) where T <: ContinuousT
     end
     samples
 end
+
 
 τ_parameters = (
     P = P,

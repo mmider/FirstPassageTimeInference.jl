@@ -42,7 +42,7 @@ parameters = (
     verb_iter = 100,
 )
 
-θs, paths = mcmc(τs, Xτs, parameters...)
+θs, paths, mean_estim_θ = mcmc(τs, Xτs, parameters...)
 
 #------------------------------------------------------------------------------#
 #                                  SUMMARY                                     #

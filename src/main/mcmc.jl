@@ -2,6 +2,8 @@ using Distributions
 
 abstract type UpdateType end
 
+abstract type TunableTransitionKernel end
+
 struct MetropolisHastings <: UpdateType end
 struct ConjugateUpdate <: UpdateType end
 
@@ -24,8 +26,11 @@ struct Workspace{TW,TX}
     llᵒ::Vector{Float64}
     numAccpt::Vector{Int64}
     N::Int64
+    ρs::Vector{Float64}
+    imp_accpt::Vector{AccptTracker}
+    updt_accpt::Vector{AccptTracker}
 
-    function Workspace(dt, obsTimes, obsVals, P)
+    function Workspace(dt, obsTimes, obsVals, P, ρ)
         Wnr = Wiener{ℝ{3,Float64}}()
 
         TW = typeof(sample([0], Wnr))
@@ -54,8 +59,12 @@ struct Workspace{TW,TX}
         repo = deepcopy(repoᵒ)
         ll = deepcopy(llᵒ)
         numAccpt = zeros(Float64, m)
+        ρs = [ρ for _ in 1:m]
+        imp_accpt = [AccptTracker() for _ in 1:m]
+        updt_accpt = [AccptTracker() for _ in 1:length(params(P))]
 
-        new{TW,TX}(Wnr, WW, WWᵒ, XX, XXᵒ, repo, repoᵒ, ll, llᵒ, numAccpt, m)
+        new{TW,TX}(Wnr, WW, WWᵒ, XX, XXᵒ, repo, repoᵒ, ll, llᵒ, numAccpt, m, ρs,
+                   imp_accpt, updt_accpt)
     end
 end
 
@@ -112,13 +121,15 @@ function swap_likhd!(ws::Workspace)
     end
 end
 
-function impute!(ws::Workspace, P, ρ)
+function impute!(ws::Workspace, P)
     for i in 1:ws.N
         sampleBB!(ws.WWᵒ[i], ws.Wnr)
-        crankNicolson!(ws.WWᵒ[i].yy, ws.WW[i].yy, ρ)
+        crankNicolson!(ws.WWᵒ[i].yy, ws.WW[i].yy, ws.ρs[i])
         Bessel!(Val{true}(), ws.WWᵒ[i], ws.XXᵒ[i], ws.repo[i])
         ws.llᵒ[i] = pathLogLikhd(ws.XXᵒ[i], P)
-        if rand(Exponential()) ≥ -(ws.llᵒ[i]-ws.ll[i])
+        accpt_sample = rand(Exponential()) ≥ -(ws.llᵒ[i]-ws.ll[i])
+        register_accpt!(ws.imp_accpt[i], accpt_sample)
+        if accpt_sample
             swap!(ws, i)
             swapNoise!(ws, i)
             ws.numAccpt[i] += 1
@@ -167,8 +178,10 @@ function updateParams!(::MetropolisHastings, ws::Workspace, P, θ, tKernel, idx,
     if rand(Exponential()) ≥ -llr
         swap!(ws)
         swapRepo!(ws)
+        register_accpt!(ws.updt_accpt[idx], true)
         return true, θᵒ, Pᵒ
     else
+        register_accpt!(ws.updt_accpt[idx], false)
         return false, θ, P
     end
 end
@@ -202,8 +215,12 @@ end
 savePath!(::Val{false}, ::Any, ::Any, ::Any, ::Any) = nothing
 
 function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
-              priors, updateType, saveIter, verbIter)
-    ws = Workspace(dt, obsTimes, obsVals, P)
+              priors, updateType, saveIter, verbIter,
+              adaptation_params = (
+                imp = _DEFAULT_IMP_P,
+                t_kernel = _DEFAULT_UPDT_P
+              ))
+    ws = Workspace(dt, obsTimes, obsVals, P, ρ)
 
     θs = Vector{typeof(params(P))}(undef, numMCMCsteps+1)
     θ = θs[1] = params(P)
@@ -215,7 +232,14 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
     numAccepted = zeros(Int64, num_param_updt)
     for i in 1:numMCMCsteps
         savePath!(Val{i % saveIter == 0}(), paths, ws.XX, P, div(i,saveIter))
-        impute!(ws, P, ρ)
+        impute!(ws, P)
+
+        if time_to_update_ρs(i)
+            display_ρ_status(ws, adaptation_params.imp.num_ρs_to_display)
+            update_ρs!(ws, i, adaptation_params.imp)
+            display_ρs_only(ws, adaptation_params.imp.num_ρs_to_display)
+        end
+
         if num_param_updt > 0
             idx₁ = mod1(i, num_param_updt)
             idx = updtParamIdx[idx₁]
@@ -225,6 +249,13 @@ function mcmc(obsTimes, obsVals, P, dt, numMCMCsteps, ρ, updtParamIdx, tKernel,
             numAccepted[idx₁] += accepted
             numProp[idx₁] += 1
         end
+
+        if time_to_update_tkern(i, num_param_updt)
+            display_kernel_status(ws, tKernel)
+            update_tkern!(ws, tKernel, i, adaptation_params.t_kernel)
+            display_kernel_only(tKernel)
+        end
+
         θs[i+1] = copy(θ)
     end
     print("Acceptance rates for imputation: ", ws.numAccpt./numMCMCsteps, "\n")

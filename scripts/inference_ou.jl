@@ -22,12 +22,12 @@ Xτs = flatten([[(p.l, p.L) for _ in 1:p.N] for p in parameters])
 #------------------------------------------------------------------------------#
 
 parameters = (
-    P = OrnsteinUhlenbeck(0.1, 15.0, 1.0),
+    P = OrnsteinUhlenbeck(θ...),
     dt = 0.01,
-    num_mcmc_steps = 30000,
+    num_mcmc_steps = 10000,
     ρ = 0.0,
     updt_param_idx = [1, 2, 3],
-    t_kernel = RandomWalk([0.35, 3.0, 0.6], [true, false, true]),
+    t_kernel = RandomWalk([0.35, 1.0, 0.6], [true, false, true]),
     priors = (
         Normal(0.0, 30.0),
         Normal(0.0, 30.0),
@@ -43,7 +43,7 @@ parameters = (
 )
 
 
-(θs, paths), elapsed  = @timeit mcmc(τs, Xτs, parameters...)
+(θs, paths, mean_estim_θ), elapsed  = @timeit mcmc(τs, Xτs, parameters...)
 
 #------------------------------------------------------------------------------#
 #                                  SUMMARY                                     #

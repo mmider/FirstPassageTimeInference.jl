@@ -11,7 +11,7 @@ restricted to take positive values, the update is done via: x⁽ⁿᵉʷ⁾ <- x
 where U ∼ Unif(-ϵ,ϵ). For unrestricted: x⁽ⁿᵉʷ⁾ <- x⁽ᵒˡᵈ⁾ + U,
 where U ∼ Unif(-ϵ,ϵ).
 """
-struct RandomWalk{T, S}
+struct RandomWalk{T, S} <: TunableTransitionKernel
     ϵ::T
     pos::S
     RandomWalk(ϵ::T, pos::S) where {T,S} = new{T,S}(ϵ,pos)
