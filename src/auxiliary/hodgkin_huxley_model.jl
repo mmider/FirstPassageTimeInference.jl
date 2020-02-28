@@ -146,7 +146,7 @@ artificial = (
 )
 
 artificial_excitatory = (
-    E = OU_params(1.0/2.0, 0.2, 0.0125),
+    E = OU_params(1.0/2.0, 0.11, 0.0125),
     I = OU_params(1.0/8.0, 0.0, 0.0),
 )
 
@@ -187,6 +187,75 @@ ax[7].set_ylim([13.0, 16.0])
 ax[1].set_ylim([-10.0, -8.2])
 # zoom-in to see if the threshold level makes sense
 ax[1].set_ylim([10.0, 13.0])
+
+#------------------------------------------------------------------
+#
+#       Let's add a `Conductance vs membrane potential plot`
+#
+#------------------------------------------------------------------
+Random.seed!(13)
+fig, ax = plt.subplots(1, figsize=(10, 5))
+samples = []
+y0_fixed = copy(y0)
+for i in 1:20
+    println(i, "...")
+    global y0, tt, P_HH
+    XX = _simulate(𝕍{2}, y0, tt, P_HH)
+    append!(samples, XX[1:100:end-1])
+    y0 = copy(XX[end])
+end
+y0 = copy(y0_fixed)
+
+ax.plot([4.5],[0.39], marker="o", markerfacecolor="black", markeredgecolor="black", markersize=10)
+ax.plot(map(x->x[1], samples[474101:476000]), map(x->x[2], samples[474101:476000]), color="black", linestyle="dashed")
+ax.plot(map(x->x[1], samples[492401:493900]), map(x->x[2], samples[492401:493900]), color="black", linestyle="dashed")
+plt.tight_layout()
+#=
+for i in 1:20
+    offset = i*1000
+    println(i, "...")
+    ax.plot(map(x->x[1], samples[offset+1:offset+1000]), map(x->x[2], samples[offset+1:offset+1000]), color="black")
+    sleep(1)
+end
+=#
+
+using Makie
+
+scene = Scene()
+time_node = Node(1)
+
+x1 = map(x->x[1], samples)
+x2 = map(x->x[2], samples)
+
+foo(t::Float64) = foo(Int64(t))
+foo(t::Int64) = (x1[t:t+100], x2[t:t+100])
+
+scatter!(scene, [4.5], [0.39], markersize=1, color="red")
+plot!(map(x->x[1], samples[474101:476000]), map(x->x[2], samples[474101:476000]), linestyle=:dash, color=:steelblue)
+plot!(map(x->x[1], samples[492401:493900]), map(x->x[2], samples[492401:493900]), linestyle=:dash, color=:steelblue)
+p = scatter!(scene, lift(t-> foo(t), time_node), limits = FRect(-5.0, 0.3, 100.0, 0.4), color=100:-1:1 ,colormap=:grays, markersize=1)[end]
+N = 100000
+record(scene, "output.mp4", 1:N; framerate=240) do i
+    push!(time_node, i)
+end
+
+using Makie
+
+scene = Scene()
+f(t, v, s) = (sin(v + t) * s, cos(v + t) * s)
+time_node = Node(0.0)
+p1 = scatter!(scene, lift(t-> f.(t, range(0, stop = 2pi, length = 50), 1), time_node))[end]
+p2 = scatter!(scene, lift(t-> f.(t * 2.0, range(0, stop = 2pi, length = 50), 1.5), time_node))[end]
+points = lift(p1[1], p2[1]) do pos1, pos2
+    map((a, b)-> (a, b), pos1, pos2)
+end
+linesegments!(scene, points)
+N = 150
+record(scene, "output.mp4", range(0, stop = 10, length = N)) do i
+    push!(time_node, i)
+end
+
+
 
 
 #==============================================================================#
