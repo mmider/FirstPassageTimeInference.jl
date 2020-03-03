@@ -141,8 +141,8 @@ layer_Vb = (
 )
 
 artificial = (
-    E = OU_params(1.0/2.0, 0.23, 0.0125),
-    I = OU_params(1.0/8.0, 0.1125, 0.00125),
+    E = OU_params(1.0/2.0, 0.18, 0.0125),
+    I = OU_params(1.0/8.0, 0.1125, 0.01),
 )
 
 artificial_excitatory = (
@@ -160,7 +160,7 @@ artificial_excitatory = (
 # `hodgkin_huxley_supporting_functions.jl`
 
 # Pick out a type of the neuron for simulations
-neuron = artificial_excitatory
+neuron = artificial#_excitatory
 
 P_HH = HodgkinHuxleySSI(
     #= modifying the default values of the Hodgkin-Huxley model
@@ -313,10 +313,17 @@ save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"
 #NOTE a function `plot_many_τ_hist` is defined in a companion file
 # `hodgkin_huxley_supporting_functions.jl`
 
+saved_neuron = (  # for g_E in [0.08, 0.11, 0.14, 0.17]
+    E = OU_params(1.0/2.0, 0.1 + g_E, 0.0225),
+    I = OU_params(1.0/8.0, 0.1525, 0.02),
+)
+
+Random.seed!(4)
+
 τs_HH = map([0.08, 0.11, 0.14, 0.17]) do g_E
     neuron = (  # excitatory input only
-        E = OU_params(1.0/2.0, g_E, 0.0125),
-        I = OU_params(1.0/8.0, 0.0, 0.0),
+        E = OU_params(1.0/2.0, 0.1 + g_E, 0.0325),
+        I = OU_params(1.0/8.0, 0.1525, 0.03),
     )
     P = HodgkinHuxleySSI(
         v_E = 75.0,
@@ -330,8 +337,8 @@ save_τ_to_file(data, joinpath(OUT_DIR, "first_passage_times_hodgkin_huxley.csv"
         noise_type = 𝕍{2},
         t0 = 0.0,
         x0 = y0,
-        reset_lvl = -8.3,
-        threshold = 13.0,
+        reset_lvl = -7.5,
+        threshold = 15.0,
         dt = 0.01,
         P = P,
         num_obs = Int64(1e5),

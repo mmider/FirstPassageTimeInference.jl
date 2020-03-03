@@ -26,11 +26,13 @@ end
 Function used for quick visualisations of the simulated Hodgkin-Huxley model
 """
 function quick_plot(tt, XX, skip=100; reset_lvl=-8.5, threshold=12.0,
-                    avg_synaptic_input=nothing)
+                    avg_synaptic_input=nothing, ax = nothing)
     # Compute the effective synaptic current:
     I_t = map( (t,y) -> synaptic_current(t, y, P_HH), tt, XX)
 
-    fig, ax = plt.subplots(7,1, figsize=(15,10), sharex=true)
+    if ax === nothing
+        fig, ax = plt.subplots(7,1, figsize=(15,10), sharex=true)
+    end
     for i in 1:6
         ax[i].plot(tt[1:skip:end], map(x->x[i], XX[1:skip:end]))
     end
